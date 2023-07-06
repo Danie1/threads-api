@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: threads-api
+Version: 1.0.0
+Summary: Unofficial Python client for Meta Threads API
+Home-page: https://github.com/danie1/threads-api
+Author: Danie1
+Author-email: 
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+License-File: LICENSE
+
+UNKNOWN
+
