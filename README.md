@@ -70,10 +70,6 @@ async def get_user_profile():
 poetry install threads-api
 ```
 
-```typescript
-// or in Deno 🦖
-import { ThreadsAPI } from "npm:threads-api";
-
 ## 📌 Roadmap
 
 - [x] ✅ Read public data\
