@@ -1,6 +1,6 @@
-# [<img src="./.github/logo.jpg" width="36" height="36" />](https://github.com/junhoyeo) Threads API
+# [<img src="./.github/logo.jpg" width="36" height="36" />](https://github.com/danie1) Threads API
 
-[![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10-blue)](https://www.npmjs.com/package/threads-api) [![MIT License](https://img.shields.io/badge/license-MIT-blue?style=flat-square&labelColor=black)](https://github.com/junhoyeo/threads-api/blob/main/license) [![Prettier Code Formatting](https://img.shields.io/badge/code_style-prettier-brightgreen.svg?style=flat-square&labelColor=black)](https://prettier.io)
+[![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10-blue)](https://www.npmjs.com/package/threads-api) [![MIT License](https://img.shields.io/badge/license-MIT-blue?style=flat-square&labelColor=black)](https://github.com/danie1/threads-api/blob/main/license) [![Prettier Code Formatting](https://img.shields.io/badge/code_style-prettier-brightgreen.svg?style=flat-square&labelColor=black)](https://prettier.io)
 
 > Unofficial, Reverse-Engineered Python client for Meta's [Threads](https://threads.net).
 
