@@ -12,18 +12,10 @@ Threads API is an unofficial Python client for Meta's Threads API. It allows you
 
 Table of content:
 
-* [Disclaimer](#disclaimer)
 * [Getting started](#getting-started)
-  * [How to install](#how-to-install)
-  * [Initialization](#initialization)
-  * [Examples](#examples)
-* [API](#api)
-  * [Login](#login)
-  * [Get User By Username](#get-user-by-username)
-  * [Get User By Identifier](#get-user-by-identifier)
-  * [Get User Threads](#get-user-threads)
-  * [Get User Replies](#get-user-replies)
-  * [Get Post](#get-post)
+  * [Installation](#Installation)
+* [Usage Examples](#Usage-Examples)
+
 
 ## Getting Started
 
