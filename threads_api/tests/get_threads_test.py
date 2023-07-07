@@ -2,7 +2,7 @@ from ..src.threads_api import ThreadsAPI
 import pytest
 
 @pytest.mark.asyncio
-async def test_get_threads_by_username():
+async def test_get_posts_by_username():
     threads_api = ThreadsAPI()
 
     username = 'zuck'
