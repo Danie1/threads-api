@@ -1,3 +1,6 @@
 **/__pycache__
 **/.unotes
 **/.pytest_cache
+dist
+build
+*.egg-info
