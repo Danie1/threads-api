@@ -10,7 +10,33 @@ Inspired by [NPM Threads-API](https://github.com/junhoyeo/threads-api)
 
 Threads API is an unofficial Python client for Meta's Threads API. It allows you to interact with the API to retrieve user profile information, user IDs, and user profile threads.
 
-# Usage Examples
+Table of content:
+
+* [Disclaimer](#disclaimer)
+* [Getting started](#getting-started)
+  * [How to install](#how-to-install)
+  * [Initialization](#initialization)
+  * [Examples](#examples)
+* [API](#api)
+  * [Login](#login)
+  * [Get User By Username](#get-user-by-username)
+  * [Get User By Identifier](#get-user-by-identifier)
+  * [Get User Threads](#get-user-threads)
+  * [Get User Replies](#get-user-replies)
+  * [Get Post](#get-post)
+
+## Getting Started
+
+### 📦 Installation
+```bash
+pip install threads-api
+```
+or
+```bash
+poetry install threads-api
+```
+
+## Usage Examples
 <details>
   <summary>"get_user_id_from_username" Function</summary>
 
@@ -214,13 +240,6 @@ winchester_757's Reply: {'text': 'If only the meta verse was this good LMAO'} ||
 winchester_757's Reply: {'text': 'Only 10 mil more to match the big guy'} || Likes: 0
 ```
 </details>
-
-
-## 📦 Installation
-
-```bash
-poetry install threads-api
-```
 
 ## 📌 Roadmap
 
