@@ -1,6 +1,8 @@
-# [<img src="./.github/logo.jpg" width="36" height="36" />](https://github.com/danie1) Threads API
+# [<img src="https://raw.githubusercontent.com/danie1/threads-api/main/.github/logo.jpg" width="36" height="36" />](https://github.com/danie1) Threads API
 
-[![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10-blue)](https://www.npmjs.com/package/threads-api) [![MIT License](https://img.shields.io/badge/license-MIT-blue?style=flat-square&labelColor=black)](https://github.com/danie1/threads-api/blob/main/license) [![Prettier Code Formatting](https://img.shields.io/badge/code_style-prettier-brightgreen.svg?style=flat-square&labelColor=black)](https://prettier.io)
+[![Downdloads](https://pepy.tech/badge/threads-api)](https://pypi.org/project/threads-api/)
+[![Version](https://img.shields.io/pypi/v/threads-api.svg?style=flat)](https://pypi.org/project/threads-api/)
+[![Python](https://img.shields.io/pypi/pyversions/threads-api.svg)](https://pypi.org/project/threads-api/) [![MIT License](https://img.shields.io/pypi/l/threads-api.svg?style=flat)](https://github.com/Danie1/threads-api/blob/main/LICENSE) 
 
 > Unofficial, Reverse-Engineered Python client for Meta's [Threads](https://threads.net).
 
