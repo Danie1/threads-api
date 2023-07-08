@@ -5,14 +5,14 @@ with open('README.md', 'r', encoding='utf-8') as f:
 
 setup(
     name='threads-api',
-    version='1.0.4',
+    version='1.0.5',
     description='Unofficial Python client for Meta Threads API',
     long_description=long_description,
     long_description_content_type='text/markdown',
     author='Danie1',
     author_email='',
     url='https://github.com/danie1/threads-api',
-    py_modules=find_packages(),
+    packages=find_packages(),
     install_requires=[
         'aiohttp',
         'requests',
