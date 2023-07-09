@@ -235,16 +235,40 @@ winchester_757's Reply: {'text': 'Only 10 mil more to match the big guy'} || Lik
 ```
 </details>
 
+<details>
+  <summary>"post" Function</summary>
+
+``` python
+async def post():
+    threads_api = ThreadsAPI()
+    # either set USERNAME and PASSWORD as environment variables, or replace these with your actual credentials
+    await threads_api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    result = await threads_api.post("Hello World!")
+
+    if result:
+        print("Post has been successfully posted")
+    else:
+        print("Unable to post.")
+```
+
+Example Output:
+```
+Post has been successfully posted
+```
+</details>
+
 ## 📌 Roadmap
 
+- [x] ✅ Login as User
+- [x] ✅ Write Posts
 - [x] ✅ Read public data\
   - [x] ✅ Fetch UserID(`314216`) via username(`zuck`)
   - [x] ✅ Read user profile info
   - [x] ✅ Read list of user Threads
   - [x] ✅ Read list of user Replies
   - [x] ✅ Read Post and a list of its Replies
-- [ ] 🚧 Read private data
-- [ ] 🚧 Write data (i.e. write automated Threads)
+- [ ]🚧  Upload images and videos
+- [ ]🚧  Reply to Posts
 - [ ]🚧  CI/CD
   - [ ]🚧  Pytest
   - [ ]🚧  GitHub Actions Pipeline

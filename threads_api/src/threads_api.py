@@ -3,52 +3,90 @@ from typing import Optional, Dict, Union, List
 import aiohttp
 import re
 import json
-
-class Extensions:
-    # Define the Extensions class if necessary
-    pass
-
-class Thread:
-    # Define the Thread class if necessary
-    pass
-
-class ThreadsUser:
-    # Define the ThreadsUser class if necessary
-    pass
-
-class GetUserProfileResponse:
-    def __init__(self, data: Dict[str, Union[Dict[str, Union[ThreadsUser, Dict[str, Union[str, int]]]], Extensions]]):
-        self.data = data['data']
-        self.extensions = data['extensions']
-
-class GetUserProfileThreadsResponse:
-    def __init__(self, data: Dict[str, Union[Dict[str, List[Thread]] , Extensions]]):
-        self.data = data['data']
-        self.extensions = data['extensions']
+import asyncio
+import json
+import random
+from datetime import datetime
+import urllib.parse
+import random
+import urllib
+import os
+import mimetypes
+import uuid
+import time
 
 class ThreadsAPIOptions:
-    def __init__(self, fbLSDToken: Optional[str] = None):
+    def __init__(self, fbLSDToken: Optional[str] = None, 
+                       token: Optional[str] = None):
         self.fbLSDToken = fbLSDToken
+        self.token = token
 
 class ThreadsAPI:
     def __init__(self, options: Optional[ThreadsAPIOptions] = None):
-        self.fbLSDToken = 'NjppQDEgONsU_1LCzrmp6q'  # FIXME: Remove default value
+        self.fbLSDToken = 'NjppQDEgONsU_1LCzrmp6q'
+        self.token = None
+        self.user_id = None
+
         if options and options.fbLSDToken:
             self.fbLSDToken = options.fbLSDToken
 
-    def _get_default_headers(self, username: str) -> Dict[str, Union[str, int]]:
-        return {
-            'authority': 'www.threads.net',
-            'accept': '*/*',
-            'accept-language': 'ko',
-            'cache-control': 'no-cache',
-            'origin': 'https://www.threads.net',
-            'pragma': 'no-cache',
-            'referer': f'https://www.threads.net/@{username}',
-            'x-asbd-id': '129477',
-            'x-fb-lsd': self.fbLSDToken,
-            'x-ig-app-id': '238260118697367',
-        }
+        if options and options.token:
+            self.token = options.token
+
+    async def login(self, username, password):
+        if username is None or password is None:
+            return None
+        
+        self.username = username
+
+        try:
+            blockVersion = "5f56efad68e1edec7801f630b5c122704ec5378adbee6609a448f105f34a9c73"
+            headers = {
+                "User-Agent": "Barcelona 289.0.0.77.109 Android",
+                "Sec-Fetch-Site": "same-origin",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            }
+            params = json.dumps(
+                {
+                    "client_input_params": {
+                        "password": password,
+                        "contact_point": username,
+                        "device_id": f"android-{random.randint(0, 1e24):x}",
+                    },
+                    "server_params": {
+                        "credential_type": "password",
+                        "device_id": f"android-{random.randint(0, 1e24):x}",
+                    },
+                }
+            )
+            bk_client_context = json.dumps(
+                {"bloks_version": blockVersion, "styles_id": "instagram"}
+            )
+
+            LOGIN_URL = "https://i.instagram.com/api/v1/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/"
+            payload = f"params={urllib.parse.quote(params)}&bk_client_context={urllib.parse.quote(bk_client_context)}&bloks_versioning_id={blockVersion}"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(LOGIN_URL, timeout=60 * 1000, headers=headers, data=payload) as response:
+                    data = await response.text()
+            
+            if data == "Oops, an error occurred.":
+                raise Exception("Failed to login")
+            
+            pos = data.split("Bearer IGT:2:")
+
+            if len(pos) > 1:
+                pos = pos[1]
+                pos = pos.split("==")[0]
+                token = f"{pos}=="
+                self.token = token
+
+                self.user_id = await self.get_user_id_from_username(username)
+                return True
+            return False
+        except Exception as e:
+            print("[ERROR] ", e)
+            raise
 
     async def get_user_id_from_username(self, username: str) -> str:
         url = f"https://www.threads.net/@{username}"
@@ -71,6 +109,11 @@ class ThreadsAPI:
 
         text = text.replace('\\s', "").replace('\\n', "")
         user_id = re.search(r'"props":{"user_id":"(\d+)"},', text)
+
+        lsd_token_match = re.search('"LSD",\[\],{"token":"(\w+)"},\d+\]', text)
+        lsd_token = lsd_token_match.group(1) if lsd_token_match else None
+        self.fbLSDToken = lsd_token
+
         return user_id.group(1) if user_id else None
 
     async def get_user_profile(self, username: str, user_id: str):
@@ -346,3 +389,49 @@ class ThreadsAPI:
 
         threads = data['data']['data']
         return threads
+                
+    async def post(self, caption: str) -> bool:
+        if self.user_id is None:
+            raise Exception("Failed to resolve user_id. You must login to post posts")
+
+        if self.token is None:
+            raise Exception("Failed to resolve token. You must login to post posts")
+
+        params = json.dumps(
+            {
+                "publish_mode": "text_post",
+                "text_post_app_info": '{"reply_control":0}',
+                "timezone_offset": "-25200",
+                "source_type": "4",
+                "_uid": self.user_id,
+                "device_id": f"android-{random.randint(0, 1e24):x}",
+                "caption": caption,
+                "upload_id": str(int(datetime.now().timestamp() * 1000)),
+                "device": {
+                    "manufacturer": "OnePlus",
+                    "model": "ONEPLUS+A3010",
+                    "android_version": 25,
+                    "android_release": "7.1.1",
+                },
+            }
+        )
+        POST_HEADERS_DEFAULT = {
+            "User-Agent": "Barcelona 289.0.0.77.109 Android",
+            "Sec-Fetch-Site": "same-origin",
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        }
+
+        payload = f"signed_body=SIGNATURE.{urllib.parse.quote(params)}"
+        headers = POST_HEADERS_DEFAULT.copy()
+        headers.update({"Authorization": f"Bearer IGT:2:{self.token}"})
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post("https://i.instagram.com/api/v1/media/configure_text_only_post/", headers=headers, data=payload) as response:
+                    if response.status == 200:
+                        return True
+                    else:
+                        return False
+        except Exception as e:
+            print("[ERROR] ", e)
+            return False

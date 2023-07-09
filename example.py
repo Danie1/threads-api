@@ -1,5 +1,6 @@
 from threads_api.src.threads_api import ThreadsAPI
 import asyncio
+import os
 
 async def get_user_id_from_username():
     threads_api = ThreadsAPI()
@@ -80,6 +81,16 @@ async def get_post():
     for thread in thread["reply_threads"]:
         print(f"-\n{thread['thread_items'][0]['post']['user']['username']}'s Reply: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
 
+async def post():
+    threads_api = ThreadsAPI()
+    await threads_api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    result = await threads_api.post("Hello World!")
+
+    if result:
+        print("Post has been successfully posted")
+    else:
+        print("Unable to post.")
+
 '''
  Remove the # to run an individual example function wrapper.
 
@@ -90,4 +101,5 @@ async def get_post():
 #asyncio.run(get_user_profile_threads())
 #asyncio.run(get_user_profile_replies())
 #asyncio.run(get_post_id_from_url())
-asyncio.run(get_post())
+#asyncio.run(get_post())
+#asyncio.run(post())
