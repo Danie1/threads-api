@@ -294,17 +294,25 @@ Post has been successfully posted
 
 - [x] ✅ Login as User
 - [x] ✅ Write Posts
-- [x] ✅ Read public data\
-  - [x] ✅ Fetch UserID(`314216`) via username(`zuck`)
+  - [x] ✅ Posts with just text
+  - [x] ✅ Posts with text and an image
+  - [x] ✅ Posts with text that share a url
+- [x] ✅ Perform Actions
+  - [x] ✅ Like Posts
+  - [x] ✅ Unlike Posts
+  - [x] ✅ Follow User
+  - [x] ✅ Unfollow User
+- [x] ✅ Read Data\
+  - [x] ✅ Read a user_id (eg. `314216`) via username(eg. `zuck`)
   - [x] ✅ Read user profile info
   - [x] ✅ Read list of user Threads
   - [x] ✅ Read list of user Replies
   - [x] ✅ Read Post and a list of its Replies
-- [ ]🚧  Upload images and videos
-- [ ]🚧  Reply to Posts
-- [x]✅  CI/CD
-  - [ ]🚧  Pytest
-  - [x]✅  GitHub Actions Pipeline
+- [ ] 🚧  Upload images and videos
+- [ ] 🚧  Reply to Posts
+- [x] ✅  CI/CD
+  - [ ] 🚧  Pytest
+  - [x] ✅  GitHub Actions Pipeline
 
 
 # License
