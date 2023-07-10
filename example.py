@@ -91,6 +91,21 @@ async def post():
     else:
         print("Unable to post.")
 
+async def post_with_image():
+    threads_api = ThreadsAPI()
+    is_success = await threads_api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+
+    result = False
+    print(f"Login status: {is_success}")
+    if is_success:
+        print("Trying to post.1..")
+        result = await threads_api.post("Hello World!", image_path=".github/logo.jpg")
+        print("Trying to post.2..")
+
+    if result:
+        print("Post has been successfully posted")
+    else:
+        print("Unable to post.")
 '''
  Remove the # to run an individual example function wrapper.
 
@@ -103,3 +118,4 @@ async def post():
 #asyncio.run(get_post_id_from_url())
 #asyncio.run(get_post())
 #asyncio.run(post())
+asyncio.run(post_with_image())
