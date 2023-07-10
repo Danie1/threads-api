@@ -10,13 +10,19 @@ Inspired by [NPM Threads-API](https://github.com/junhoyeo/threads-api)
 
 # Threads API - Python
 
-Threads API is an unofficial Python client for Meta's Threads API. It allows you to interact with the API to retrieve user profile information, user IDs, and user profile threads.
+Threads API is an unofficial Python client for Meta's Threads API. It allows you to interact with the API to login, post, retrieve user profile information, user IDs and user profile threads.
 
 Table of content:
 
+* [Demo](#demo)
 * [Getting started](#getting-started)
   * [Installation](#Installation)
-* [Usage Examples](#Usage-Examples)
+* [Usage Examples](#usage-examples)
+* [Roadmap](#📌-roadmap)
+* [License](#license)
+
+# Demo
+<img src=".github/user_example1.jpeg" alt="drawing" width="500"/>
 
 
 ## Getting Started
@@ -28,6 +34,33 @@ pip install threads-api
 or
 ```bash
 poetry install threads-api
+```
+
+Example using threads-api to post to Threads.net:
+``` python
+from threads_api.src.threads_api import ThreadsAPI
+import asyncio
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+async def post():
+    threads_api = ThreadsAPI()
+    await threads_api.login(os.environ.get('USERNAME'), os.environ,get('PASSWORD'))
+    result = await threads_api.post("I am posting this from the threads api!")
+
+    if result:
+        print("Post has been successfully posted")
+    else:
+        print("Unable to post.")
+
+async def main():
+    await post()
+
+# Create an event loop and run the main function
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main())
 ```
 
 ## Usage Examples
