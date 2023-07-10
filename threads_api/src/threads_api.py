@@ -14,6 +14,12 @@ import os
 import mimetypes
 import uuid
 import time
+import traceback
+
+BASE_URL = "https://i.instagram.com/api/v1"
+LOGIN_URL = BASE_URL + "/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/"
+POST_URL_TEXTONLY = BASE_URL + "/media/configure_text_only_post/"
+POST_URL_IMAGE = BASE_URL + "/media/configure_text_post_app_feed/"
 
 class ThreadsAPIOptions:
     def __init__(self, fbLSDToken: Optional[str] = None, 
@@ -33,10 +39,12 @@ class ThreadsAPI:
         if options and options.token:
             self.token = options.token
 
+        self.is_logged_in = False
+
     async def login(self, username, password):
         if username is None or password is None:
-            return None
-        
+            raise Exception("Username or password are invalid")
+
         self.username = username
 
         try:
@@ -63,18 +71,16 @@ class ThreadsAPI:
                 {"bloks_version": blockVersion, "styles_id": "instagram"}
             )
 
-            LOGIN_URL = "https://i.instagram.com/api/v1/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/"
             payload = f"params={urllib.parse.quote(params)}&bk_client_context={urllib.parse.quote(bk_client_context)}&bloks_versioning_id={blockVersion}"
             
             async with aiohttp.ClientSession() as session:
                 async with session.post(LOGIN_URL, timeout=60 * 1000, headers=headers, data=payload) as response:
                     data = await response.text()
-            
+
             if data == "Oops, an error occurred.":
                 raise Exception("Failed to login")
-            
-            pos = data.split("Bearer IGT:2:")
 
+            pos = data.split("Bearer IGT:2:")
             if len(pos) > 1:
                 pos = pos[1]
                 pos = pos.split("==")[0]
@@ -82,27 +88,40 @@ class ThreadsAPI:
                 self.token = token
 
                 self.user_id = await self.get_user_id_from_username(username)
+                self.is_logged_in = True
                 return True
-            return False
+            else:
+                raise Exception("Error with the login response")
         except Exception as e:
             print("[ERROR] ", e)
             raise
 
+    async def __auth_required_post_request(self, url: str):
+        headers = {
+                'Authorization': f'Bearer IGT:2:{self.token}',
+                'User-Agent': 'Barcelona 289.0.0.77.109 Android',
+                'Sec-Fetch-Site': 'same-origin',
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers) as response:
+                return await response.json()
+            
     async def get_user_id_from_username(self, username: str) -> str:
         url = f"https://www.threads.net/@{username}"
         headers = {
             "authority": "www.threads.net",
             "accept": "*/*",
-            "accept-language": "ko",
+            'accept-language': 'en-US,en;q=0.9',
             "cache-control": "no-cache",
             "origin": "https://www.threads.net",
             "pragma": "no-cache",
             "referer": f"https://www.threads.net/@{username}",
             "x-asbd-id": "129477",
-            "x-fb-lsd": self.fbLSDToken,
+            "x-fb-lsd": "NjppQDEgONsU_1LCzrmp6q",
             "x-ig-app-id": "238260118697367",
         }
-
+        
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers) as response:
                 text = await response.text()
@@ -112,7 +131,7 @@ class ThreadsAPI:
 
         lsd_token_match = re.search('"LSD",\[\],{"token":"(\w+)"},\d+\]', text)
         lsd_token = lsd_token_match.group(1) if lsd_token_match else None
-        self.fbLSDToken = lsd_token
+        #self.fbLSDToken = lsd_token
 
         return user_id.group(1) if user_id else None
 
@@ -307,7 +326,7 @@ class ThreadsAPI:
         headers = {
             "authority": "www.threads.net",
             "accept": "*/*",
-            "accept-language": "ko",
+            'accept-language': 'en-US,en;q=0.9',
             "cache-control": "no-cache",
             "origin": "https://www.threads.net",
             "pragma": "no-cache",
@@ -376,7 +395,7 @@ class ThreadsAPI:
         'variables': '{"postID":"3141737961795561608"}',
         'server_timestamps': 'true',
         'doc_id': '6529829603744567',
-    }
+        }
         
 
         async with aiohttp.ClientSession() as session:
@@ -389,49 +408,170 @@ class ThreadsAPI:
 
         threads = data['data']['data']
         return threads
-                
-    async def post(self, caption: str) -> bool:
-        if self.user_id is None:
-            raise Exception("Failed to resolve user_id. You must login to post posts")
-
-        if self.token is None:
-            raise Exception("Failed to resolve token. You must login to post posts")
-
-        params = json.dumps(
-            {
-                "publish_mode": "text_post",
-                "text_post_app_info": '{"reply_control":0}',
-                "timezone_offset": "-25200",
-                "source_type": "4",
-                "_uid": self.user_id,
-                "device_id": f"android-{random.randint(0, 1e24):x}",
-                "caption": caption,
-                "upload_id": str(int(datetime.now().timestamp() * 1000)),
-                "device": {
-                    "manufacturer": "OnePlus",
-                    "model": "ONEPLUS+A3010",
-                    "android_version": 25,
-                    "android_release": "7.1.1",
-                },
+    
+    async def post(
+        self, caption: str, image_path: str = None, url: str = None, parent_post_id: str = None
+    ) -> bool:
+        def __get_app_headers() -> dict:
+            headers = {
+                "User-Agent": f"Barcelona 289.0.0.77.109 Android",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
             }
-        )
-        POST_HEADERS_DEFAULT = {
-            "User-Agent": "Barcelona 289.0.0.77.109 Android",
-            "Sec-Fetch-Site": "same-origin",
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        }
+            if self.token is not None:
+                headers["Authorization"] = f"Bearer IGT:2:{self.token}"
+            return headers
 
+        async def __is_valid_url(url: str) -> bool:
+            url_pattern = re.compile(
+                r"^(https?://)?"
+                r"((([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])\.)+[a-zA-Z]{2,})"
+                r"(/?|/[-a-zA-Z0-9_%+.~!@#$^&*(){}[\]|/\\<>]*)$"
+            )
+            if re.match(url_pattern, url) is not None:
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.head(url) as response:
+                            return response.status == 200
+                except aiohttp.ClientError:
+                    return False
+            return False
+
+        async def __download(url: str) -> bytes:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as response:
+                        response.raise_for_status()
+                        return await response.read()
+            except aiohttp.ClientError as e:
+                raise Exception("[ERROR] failed to load file: ", e)
+
+        async def __upload_image(image_url: str, image_content: bytes) -> str:
+            headers = __get_app_headers().copy()
+
+            upload_id = int(time.time() * 1000)
+            name = f"{upload_id}_0_{random.randint(1000000000, 9999999999)}"
+            url = "https://www.instagram.com/rupload_igphoto/" + name
+            mime_type = None
+            if image_content is None:
+                with open(image_url, mode="rb") as f:
+                    content = f.read()
+                mime_type, _ = mimetypes.guess_type(image_url)
+            else:
+                content = image_content
+                async with aiohttp.ClientSession() as session:
+                    async with session.head(image_url) as response:
+                        content_type = response.headers.get("Content-Type")
+                        if not content_type:
+                            file_name = url.split("/")[-1]
+                            mime_type, _ = mimetypes.guess_type(file_name)
+                        if mime_type is None:
+                            mime_type = "jpeg"
+
+            x_instagram_rupload_params = {
+                "upload_id": f"{upload_id}",
+                "media_type": "1",
+                "sticker_burnin_params": "[]",
+                "image_compression": json.dumps(
+                    {"lib_name": "moz", "lib_version": "3.1.m", "quality": "80"}
+                ),
+                "xsharing_user_ids": "[]",
+                "retry_context": {
+                    "num_step_auto_retry": "0",
+                    "num_reupload": "0",
+                    "num_step_manual_retry": "0",
+                },
+                "IG-FB-Xpost-entry-point-v2": "feed",
+            }
+            content_length = len(content)
+            if mime_type.startswith("image/"):
+                mime_type = mime_type.replace("image/", "")
+            image_headers = {
+                "X_FB_PHOTO_WATERFALL_ID": str(uuid.uuid4()),
+                "X-Entity-Type": "image/" + mime_type,
+                "Offset": "0",
+                "X-Instagram-Rupload-Params": json.dumps(x_instagram_rupload_params),
+                "X-Entity-Name": f"{name}",
+                "X-Entity-Length": f"{content_length}",
+                "Content-Type": "application/octet-stream",
+                "Content-Length": f"{content_length}",
+                "Accept-Encoding": "gzip",
+            }
+
+            headers.update(image_headers)
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, data=content) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    else:
+                        raise Exception("Failed to upload image")
+
+        if not self.is_logged_in:
+            raise Exception("You need to login before posting")
+        
+        now = datetime.now()
+        timezone_offset = (datetime.now() - datetime.utcnow()).seconds
+
+        params = {
+            "text_post_app_info": {"reply_control": 0},
+            "timezone_offset": "-" + str(timezone_offset),
+            "source_type": "4",
+            "_uid": self.user_id,
+            "device_id": str(f"android-{random.randint(0, 1e24):x}"),
+            "caption": caption,
+            "upload_id": str(int(now.timestamp() * 1000)),
+            "device": {
+                "manufacturer": "OnePlus",
+                "model": "ONEPLUS+A3010",
+                "android_version": 25,
+                "android_release": "7.1.1",
+            },
+        }
+        post_url = POST_URL_TEXTONLY
+        if image_path is not None:
+            post_url = POST_URL_IMAGE
+            image_content = None
+            if not (os.path.isfile(image_path) and os.path.exists(image_path)):
+                if not __is_valid_url(image_path):
+                    return False
+                else:
+                    image_content = await __download(image_path)
+            upload_id = await __upload_image(image_url=image_path, image_content=image_content)
+            if upload_id is None:
+                return False
+            params["upload_id"] = upload_id["upload_id"]
+            params["scene_capture_type"] = ""
+        elif url is not None:
+            params["text_post_app_info"]["link_attachment_url"] = url
+        if image_path is None:
+            params["publish_mode"] = "text_post"
+
+        if parent_post_id is not None:
+            params["text_post_app_info"]["reply_id"] = parent_post_id
+        params = json.dumps(params)
         payload = f"signed_body=SIGNATURE.{urllib.parse.quote(params)}"
-        headers = POST_HEADERS_DEFAULT.copy()
-        headers.update({"Authorization": f"Bearer IGT:2:{self.token}"})
+        headers = __get_app_headers().copy()
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post("https://i.instagram.com/api/v1/media/configure_text_only_post/", headers=headers, data=payload) as response:
+                async with session.post(post_url, headers=headers, data=payload) as response:
                     if response.status == 200:
                         return True
                     else:
-                        return False
+                        raise Exception("Failed to post")
         except Exception as e:
             print("[ERROR] ", e)
-            return False
+            raise
+
+    async def follow_user(self, user_id: str) -> bool:
+        if not self.is_logged_in:
+            raise Exception("The action 'follow' can only be perfomed while logged-in")
+        
+        res = await self.__auth_required_post_request(f"{BASE_URL}/friendships/create/{user_id}/")
+        return res["status"] == "ok"
+
+    async def unfollow_user(self, user_id: str) -> bool:
+        if not self.is_logged_in:
+            raise Exception("The action 'unfollow' can only be perfomed while logged-in")
+        
+        res = await self.__auth_required_post_request(f"{BASE_URL}/friendships/destroy/{user_id}/")
+        return res["status"] == "ok"

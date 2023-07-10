@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "threads-api"
-version = "1.0.7"
+version = "1.0.8"
 description = "Unofficial Python client for Meta Threads.net API"
 authors = ["Danie1"]
 readme = "README.md"

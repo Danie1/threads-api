@@ -3,10 +3,10 @@ import asyncio
 import os
 
 async def get_user_id_from_username():
-    threads_api = ThreadsAPI()
+    api = ThreadsAPI()
 
     username = "zuck"
-    user_id = await threads_api.get_user_id_from_username(username)
+    user_id = await api.get_user_id_from_username(username)
 
     if user_id:
         print(f"The user ID for username '{username}' is: {user_id}")
@@ -14,13 +14,13 @@ async def get_user_id_from_username():
         print(f"User ID not found for username '{username}'")
 
 async def get_user_profile_threads():
-    threads_api = ThreadsAPI()
+    api = ThreadsAPI()
 
     username = "zuck"
-    user_id = await threads_api.get_user_id_from_username(username)
+    user_id = await api.get_user_id_from_username(username)
 
     if user_id:
-        threads = await threads_api.get_user_profile_threads(username, user_id)
+        threads = await api.get_user_profile_threads(username, user_id)
         print(f"The threads for user '{username}' are:")
         for thread in threads:
             print(f"{username}'s Post: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
@@ -28,13 +28,13 @@ async def get_user_profile_threads():
         print(f"User ID not found for username '{username}'")
 
 async def get_user_profile_replies():
-    threads_api = ThreadsAPI()
+    api = ThreadsAPI()
 
     username = "zuck"
-    user_id = await threads_api.get_user_id_from_username(username)
+    user_id = await api.get_user_id_from_username(username)
 
     if user_id:
-        threads = await threads_api.get_user_profile_replies(username, user_id)
+        threads = await api.get_user_profile_replies(username, user_id)
         print(f"The replies for user '{username}' are:")
         for thread in threads:
             print(f"-\n{thread['thread_items'][0]['post']['user']['username']}'s Post: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
@@ -48,13 +48,13 @@ async def get_user_profile_replies():
         print(f"User ID not found for username '{username}'")
 
 async def get_user_profile():
-    threads_api = ThreadsAPI()
+    api = ThreadsAPI()
 
     username = "zuck"
-    user_id = await threads_api.get_user_id_from_username(username)
+    user_id = await api.get_user_id_from_username(username)
 
     if user_id:
-        user_profile = await threads_api.get_user_profile(username, user_id)
+        user_profile = await api.get_user_profile(username, user_id)
         print(f"User profile for '{username}':")
         print(f"Name: {user_profile['username']}")
         print(f"Bio: {user_profile['biography']}")
@@ -63,33 +63,98 @@ async def get_user_profile():
         print(f"User ID not found for username '{username}'")
 
 async def get_post_id_from_url():
-    threads_api = ThreadsAPI()
+    api = ThreadsAPI()
     post_url = "https://www.threads.net/t/CuZsgfWLyiI"
 
-    post_id = await threads_api.get_post_id_from_url(post_url)
+    post_id = await api.get_post_id_from_url(post_url)
     print(f"Thread post_id is {post_id}")
 
 async def get_post():
-    threads_api = ThreadsAPI()
+    api = ThreadsAPI()
     post_url = "https://www.threads.net/t/CuZsgfWLyiI"
 
-    post_id = await threads_api.get_post_id_from_url(post_url)
+    post_id = await api.get_post_id_from_url(post_url)
 
-    thread = await threads_api.get_post(post_id)
+    thread = await api.get_post(post_id)
     print(f"{thread['containing_thread']['thread_items'][0]['post']['user']['username']}'s post {thread['containing_thread']['thread_items'][0]['post']['caption']}:")
 
     for thread in thread["reply_threads"]:
         print(f"-\n{thread['thread_items'][0]['post']['user']['username']}'s Reply: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
 
 async def post():
-    threads_api = ThreadsAPI()
-    await threads_api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
-    result = await threads_api.post("Hello World!")
+    api = ThreadsAPI()
+    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        result = await api.post("Hello World!")
 
     if result:
         print("Post has been successfully posted")
     else:
         print("Unable to post.")
+
+async def post_include_image():
+    api = ThreadsAPI()
+    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    result = False
+    if is_success:
+        result = await api.post("Hello World with an image!", image_path=".github/logo.jpg")
+
+    if result:
+        print("Post has been successfully posted")
+    else:
+        print("Unable to post.")
+
+async def post_include_url():
+    api = ThreadsAPI()
+    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    result = False
+    if is_success:
+        result = await api.post("Hello World with a link!", url="https://threads.net")
+
+    if result:
+        print("Post has been successfully posted")
+    else:
+        print("Unable to post.")
+
+async def follow_user():
+    username_to_follow = "zuck"
+
+    api = ThreadsAPI()
+    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    result = False
+    if is_success:
+        user_id_to_follow = await api.get_user_id_from_username(username_to_follow)
+        result = await api.follow_user(user_id_to_follow)
+
+    if result:
+        print(f"Successfully followed {username_to_follow}")
+    else:
+        print(f"Unable to follow {username_to_follow}.")
+
+async def unfollow_user():
+    username_to_follow = "zuck"
+
+    api = ThreadsAPI()
+    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    result = False
+    if is_success:
+        user_id_to_follow = await api.get_user_id_from_username(username_to_follow)
+        result = await api.unfollow_user(user_id_to_follow)
+
+    if result:
+        print(f"Successfully unfollowed {username_to_follow}")
+    else:
+        print(f"Unable to unfollow {username_to_follow}.")        
 
 '''
  Remove the # to run an individual example function wrapper.
@@ -103,3 +168,7 @@ async def post():
 #asyncio.run(get_post_id_from_url())
 #asyncio.run(get_post())
 #asyncio.run(post())
+#asyncio.run(post_include_image())
+#asyncio.run(post_include_url())
+#asyncio.run(follow_user())
+#asyncio.run(unfollow_user())
