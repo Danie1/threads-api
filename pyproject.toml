@@ -6,7 +6,7 @@ authors = ["Danie1"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.8.1"
 requests = "^2.26.0"
 pytest = "^6.2.4"
 pytest-asyncio = "^0.15.1"
