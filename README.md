@@ -269,9 +269,9 @@ Post has been successfully posted
   - [x] ✅ Read Post and a list of its Replies
 - [ ]🚧  Upload images and videos
 - [ ]🚧  Reply to Posts
-- [ ]🚧  CI/CD
+- [x]✅  CI/CD
   - [ ]🚧  Pytest
-  - [ ]🚧  GitHub Actions Pipeline
+  - [x]✅  GitHub Actions Pipeline
 
 
 # License
