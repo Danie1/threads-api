@@ -1,11 +1,12 @@
 [tool.poetry]
-name = "unofficial meta threads api"
-version = "0.1.0"
-description = "Unoffical Threads API"
+name = "threads-api"
+version = "1.0.7"
+description = "Unofficial Python client for Meta Threads.net API"
 authors = ["Danie1"]
+readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.7"
 requests = "^2.26.0"
 pytest = "^6.2.4"
 pytest-asyncio = "^0.15.1"

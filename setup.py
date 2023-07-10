@@ -6,7 +6,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
 setup(
     name='threads-api',
     version='1.0.7',
-    description='Unofficial Python client for Meta Threads API',
+    description='Unofficial Python client for Meta Threads.net API',
     long_description=long_description,
     long_description_content_type='text/markdown',
     author='Danie1',
