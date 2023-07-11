@@ -1,4 +1,3 @@
-import requests
 from typing import Optional, Dict, Union, List
 import aiohttp
 import re
@@ -15,33 +14,82 @@ import mimetypes
 import uuid
 import time
 import traceback
+import copy
 
 BASE_URL = "https://i.instagram.com/api/v1"
 LOGIN_URL = BASE_URL + "/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/"
 POST_URL_TEXTONLY = BASE_URL + "/media/configure_text_only_post/"
 POST_URL_IMAGE = BASE_URL + "/media/configure_text_post_app_feed/"
+DEFAULT_HEADERS = {
+            'Authority': 'www.threads.net',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'no-cache',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Origin': 'https://www.threads.net',
+            'Pragma': 'no-cache',
+             'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'cross-site',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+            'User-Agent': (
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) '
+                'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1.2 Safari/605.1.15'
+            ),
+            'X-ASBD-ID': '129477',
+            'X-FB-LSD': 'NjppQDEgONsU_1LCzrmp6q',
+            'X-IG-App-ID': '238260118697367',
+        }
 
 class ThreadsAPIOptions:
-    def __init__(self, fbLSDToken: Optional[str] = None, 
-                       token: Optional[str] = None):
-        self.fbLSDToken = fbLSDToken
+    def __init__(self, token: Optional[str] = None):
         self.token = token
 
 class ThreadsAPI:
     def __init__(self, options: Optional[ThreadsAPIOptions] = None):
-        self.fbLSDToken = 'NjppQDEgONsU_1LCzrmp6q'
         self.token = None
         self.user_id = None
-
-        if options and options.fbLSDToken:
-            self.fbLSDToken = options.fbLSDToken
 
         if options and options.token:
             self.token = options.token
 
         self.is_logged_in = False
 
+        self.FBLSDToken = 'NjppQDEgONsU_1LCzrmp6q'
+
+    async def _get_public_headers(self) -> str:
+        default_headers = copy.deepcopy(DEFAULT_HEADERS)
+        default_headers['X-FB-LSD'] = await self._refresh_public_token()
+        return default_headers
+    
+    async def _refresh_public_token(self) -> str:
+        modified_default_headers = copy.deepcopy(DEFAULT_HEADERS)
+        del modified_default_headers['X-FB-LSD']
+        async with aiohttp.ClientSession() as session:
+            async with session.get('https://www.instagram.com/instagram', headers=modified_default_headers) as response:
+                data = await response.text()
+                token_key_value = re.search('LSD",\\[\\],{"token":"(.*?)"},\\d+\\]', data).group()
+                token_key_value = token_key_value.replace('LSD",[],{"token":"', '')
+                token = token_key_value.split('"')[0]
+
+        self.FBLSDToken = token
+        return self.FBLSDToken
+    
     async def login(self, username, password):
+        """
+        Logs in the user with the provided username and password.
+
+        Args:
+            username (str): The username for authentication.
+            password (str): The password for authentication.
+
+        Returns:
+            bool: True if the login is successful, False otherwise.
+
+        Raises:
+            Exception: If the username or password are invalid, or if an error occurs during login.
+        """
         if username is None or password is None:
             raise Exception("Username or password are invalid")
 
@@ -88,6 +136,12 @@ class ThreadsAPI:
                 self.token = token
 
                 self.user_id = await self.get_user_id_from_username(username)
+                self.auth_headers = {
+                    'Authorization': f'Bearer IGT:2:{self.token}',
+                    'User-Agent': 'Barcelona 289.0.0.77.109 Android',
+                    'Sec-Fetch-Site': 'same-origin',
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                }
                 self.is_logged_in = True
                 return True
             else:
@@ -97,158 +151,123 @@ class ThreadsAPI:
             raise
 
     async def __auth_required_post_request(self, url: str):
-        headers = {
-                'Authorization': f'Bearer IGT:2:{self.token}',
-                'User-Agent': 'Barcelona 289.0.0.77.109 Android',
-                'Sec-Fetch-Site': 'same-origin',
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            }
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers) as response:
+            async with session.post(url, headers=self.auth_headers) as response:
                 return await response.json()
-            
+    
+    
+
     async def get_user_id_from_username(self, username: str) -> str:
-        url = f"https://www.threads.net/@{username}"
-        headers = {
-            "authority": "www.threads.net",
-            "accept": "*/*",
-            'accept-language': 'en-US,en;q=0.9',
-            "cache-control": "no-cache",
-            "origin": "https://www.threads.net",
-            "pragma": "no-cache",
-            "referer": f"https://www.threads.net/@{username}",
-            "x-asbd-id": "129477",
-            "x-fb-lsd": "NjppQDEgONsU_1LCzrmp6q",
-            "x-ig-app-id": "238260118697367",
-        }
+        """
+        Retrieves the user ID associated with a given username.
         
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as response:
-                text = await response.text()
+        Args:
+            username (str): The username to retrieve the user ID for.
+        
+        Returns:
+            str: The user ID if found, or None if the user ID is not found.
+        """
+        if self.is_logged_in:
+            url = BASE_URL + "/users/{username}/usernameinfo/"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=self.auth_headers) as response:
+                    data = await response.json()
+                    user_id = int(data['user']['pk'])
+                    return user_id
+        else:
+            url = f"https://www.threads.net/@{username}"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=await self._get_public_headers()) as response:
+                    text = await response.text()
 
-        text = text.replace('\\s', "").replace('\\n', "")
-        user_id = re.search(r'"props":{"user_id":"(\d+)"},', text)
+            text = text.replace('\\s', "").replace('\\n', "")
+            user_id = re.search(r'"props":{"user_id":"(\d+)"},', text)
 
-        lsd_token_match = re.search('"LSD",\[\],{"token":"(\w+)"},\d+\]', text)
-        lsd_token = lsd_token_match.group(1) if lsd_token_match else None
-        #self.fbLSDToken = lsd_token
+            return user_id.group(1) if user_id else None
 
-        return user_id.group(1) if user_id else None
+    async def get_user_profile(self, user_id: str):
+        """
+        Retrieves the profile information for a user with the provided user ID.
 
-    async def get_user_profile(self, username: str, user_id: str):
+        Args:
+            user_id (str): The user ID for which to retrieve the profile information.
+
+        Returns:
+            dict: A dictionary containing the user profile information.
+
+        Raises:
+            Exception: If an error occurs during the profile retrieval process.
+        """
         url = 'https://www.threads.net/api/graphql'
-        headers = {
-            'authority': 'www.threads.net',
-            'accept': '*/*',
-            'accept-language': 'en-US,en;q=0.9',
-            'content-type': 'application/x-www-form-urlencoded',
-            'origin': 'https://www.threads.net',
-            'referer': f'https://www.threads.net/@{username}',
-            'sec-ch-prefers-color-scheme': 'light',
-            'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-            'sec-ch-ua-full-version-list': '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.199", "Google Chrome";v="114.0.5735.199"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'sec-ch-ua-platform-version': '"15.0.0"',
+
+        modified_headers = copy.deepcopy(await self._get_public_headers())
+
+        modified_headers.update({
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-origin',
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'viewport-width': '897',
-            'x-asbd-id': '129477',
             'x-fb-friendly-name': 'BarcelonaProfileRootQuery',
-            'x-fb-lsd': 'I5silyPfeZJQAyrhqVdqGB',
-            'x-ig-app-id': '238260118697367'
-        }
+            'x-fb-lsd': self.FBLSDToken,
+        })
+        
         payload = {
-            'av': '0',
-            '__user': '0',
-            '__a': '1',
-            '__req': '1',
-            '__hs': '19544.HYP:barcelona_web_pkg.2.1..0.0',
-            'dpr': '1',
-            '__ccg': 'EXCELLENT',
-            '__rev': '1007798382',
-            '__s': 'hue11s:dyq74i:1fwaxg',
-            '__hsi': '7252829167888753415',
-            '__dyn': '7xeUmwlEnwn8K2WnFw9-2i5U4e0yoW3q32360CEbo1nEhw2nVE4W0om78b87C0yE465o-cw5Mx62G3i0Bo7O2l0Fwqo31wnEfovwRwlE-U2zxe2Gew9O22362W2K0zK5o4q0GpovU1aUbodEGdwtU2ewbS1LwTwNwLw8O1pwr82gxC',
-            '__csr': 'gyhelk8iS00lnm4oioC2385um28MWawVwt40km2Ordg-cGu3C4E6-2QfoJ4m8g80x6wbC0E41Jy30sQ13g0E06V08M42eNE8k0wg88gzBe',
-            '__comet_req': '29',
-            'lsd': 'I5silyPfeZJQAyrhqVdqGB',
-            'jazoest': '22056',
-            '__spin_r': '1007798382',
-            '__spin_b': 'trunk',
-            '__spin_t': '1688680883',
-            '__jssesw': '1',
-            'fb_api_caller_class': 'RelayModern',
-            'fb_api_req_friendly_name': 'BarcelonaProfileRootQuery',
-            'variables': f'{{"userID":"{user_id}"}}',
-            'server_timestamps': 'true',
-            'doc_id': '23996318473300828'
-        }
+                'lsd': self.FBLSDToken,
+                'variables': json.dumps(
+                    {
+                        'userID': user_id,
+                    }
+                ),
+                'doc_id': '23996318473300828'
+            }
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=payload) as response:
+            async with session.post(url, headers=modified_headers, data=payload) as response:
                 text = await response.text()
                 data = json.loads(text)
                
         user = data['data']['userData']['user']
         return user
 
-    async def get_user_profile_threads(self, username: str, user_id: str):
+    async def get_user_threads(self, user_id: str):
+        """
+        Retrieves the threads associated with a user with the provided user ID.
+
+        Args:
+            user_id (str): The user ID for which to retrieve the threads.
+
+        Returns:
+            list: A list of dictionaries representing the threads associated with the user.
+
+        Raises:
+            Exception: If an error occurs during the thread retrieval process.
+        """
         url = 'https://www.threads.net/api/graphql'
-        headers = {
-            'authority': 'www.threads.net',
-            'accept': '*/*',
-            'accept-language': 'en-US,en;q=0.9',
-            'content-type': 'application/x-www-form-urlencoded',
-            'origin': 'https://www.threads.net',
-            'referer': f'https://www.threads.net/@{username}',
-            'sec-ch-prefers-color-scheme': 'light',
-            'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-            'sec-ch-ua-full-version-list': '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.199", "Google Chrome";v="114.0.5735.199"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'sec-ch-ua-platform-version': '"15.0.0"',
+        
+        modified_headers = copy.deepcopy(await self._get_public_headers())
+
+        modified_headers.update({
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-origin',
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'viewport-width': '897',
-            'x-asbd-id': '129477',
             'x-fb-friendly-name': 'BarcelonaProfileThreadsTabQuery',
-            'x-fb-lsd': 'I5silyPfeZJQAyrhqVdqGB',
-            'x-ig-app-id': '238260118697367'
-        }
+            'x-fb-lsd': self.FBLSDToken,
+        })
+        
         payload = {
-            'av': '0',
-            '__user': '0',
-            '__a': '1',
-            '__req': '2',
-            '__hs': '19544.HYP:barcelona_web_pkg.2.1..0.0',
-            'dpr': '1',
-            '__ccg': 'EXCELLENT',
-            '__rev': '1007798382',
-            '__s': 'hue11s:dyq74i:1fwaxg',
-            '__hsi': '7252829167888753415',
-            '__dyn': '7xeUmwlEnwn8K2WnFw9-2i5U4e0yoW3q32360CEbo1nEhw2nVE4W0om78b87C0yE465o-cw5Mx62G3i0Bo7O2l0Fwqo31wnEfovwRwlE-U2zxe2Gew9O22362W2K0zK5o4q0GpovU1aUbodEGdwtU2ewbS1LwTwNwLw8O1pwr82gxC',
-            '__csr': 'gyhelk8iS00lnm4oioC2385um28MWawVwt40km2Ordg-cGu3C4E6-2QfoJ4m8g80x6wbC0E41Jy30sQ13g0E06V08M42eNE8k0wg88gzBe',
-            '__comet_req': '29',
-            'lsd': 'I5silyPfeZJQAyrhqVdqGB',
-            'jazoest': '22056',
-            '__spin_r': '1007798382',
-            '__spin_b': 'trunk',
-            '__spin_t': '1688680883',
-            '__jssesw': '1',
-            'fb_api_caller_class': 'RelayModern',
-            'fb_api_req_friendly_name': 'BarcelonaProfileThreadsTabQuery',
-            'variables': f'{{"userID":"{user_id}"}}',
-            'server_timestamps': 'true',
-            'doc_id': '6232751443445612'
-        }
-
+                'lsd': self.FBLSDToken,
+                'variables': json.dumps(
+                    {
+                        'userID': user_id,
+                    }
+                ),
+                'doc_id': '6307072669391286'
+            }
+        
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=payload) as response:
+            async with session.post(url, headers=modified_headers, data=payload) as response:
                 try:
                     text = await response.text()
                     data = json.loads(text)
@@ -258,60 +277,44 @@ class ThreadsAPI:
         threads = data['data']['mediaData']['threads']
         return threads
     
-    async def get_user_profile_replies(self, username: str, user_id: str):
+    async def get_user_replies(self, user_id: str):
+        """
+        Retrieves the replies associated with a user with the provided user ID.
+
+        Args:
+            user_id (str): The user ID for which to retrieve the replies.
+
+        Returns:
+            list: A list of dictionaries representing the replies associated with the user.
+
+        Raises:
+            Exception: If an error occurs during the thread retrieval process.
+        """
         url = 'https://www.threads.net/api/graphql'
-        headers = {
-            'authority': 'www.threads.net',
-            'accept': '*/*',
-            'accept-language': 'en-US,en;q=0.9',
-            'content-type': 'application/x-www-form-urlencoded',
-            'origin': 'https://www.threads.net',
-            'referer': 'https://www.threads.net/@zuck/replies',
-            'sec-ch-prefers-color-scheme': 'light',
-            'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-            'sec-ch-ua-full-version-list': '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.199", "Google Chrome";v="114.0.5735.199"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': 'Windows',
-            'sec-ch-ua-platform-version': '15.0.0',
+
+        modified_headers = copy.deepcopy(await self._get_public_headers())
+
+        modified_headers.update({
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-origin',
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'viewport-width': '897',
-            'x-asbd-id': '129477',
             'x-fb-friendly-name': 'BarcelonaProfileRepliesTabQuery',
-            'x-fb-lsd': 'tu2kTRKO1aZl9rMKmRuq9u',
-            'x-ig-app-id': '238260118697367',
-        }
+            'x-fb-lsd': self.FBLSDToken,
+        })
+        
         payload = {
-            'av': '0',
-            '__user': '0',
-            '__a': '1',
-            '__req': '2',
-            '__hs': '19545.HYP:barcelona_web_pkg.2.1..0.0',
-            'dpr': '1',
-            '__ccg': 'EXCELLENT',
-            '__rev': '1007803729',
-            '__s': 'vg5z1u:dyq74i:zgf5h2',
-            '__hsi': '7253172656040290354',
-            '__dyn': '7xeUmwlEnwn8K2WnFw9-2i5U4e0yoW3q32360CEbo1nEhw2nVE4W0om78b87C0yE465o-cw5Mx62G3i0Bo7O2l0Fwqo31wnEfovwRwlE-U2zxe2Gew9O22362W2K0zK5o4q0GpovU1aUbodEGdwtU2ewbS1LwTwNwLw8O1pwr82gxC',
-            '__csr': 'gA-AlUx9k00lp25u17xS6UvwhUO3gMym8g4Ry82GwwAN0rx11dxW4E4-261wwI7Nw4i0g11l0MgeoJS1KF0Y3MV4m0aj0g8X6G7wt4a0wo-eEU',
-            '__comet_req': '29',
-            'lsd': 'tu2kTRKO1aZl9rMKmRuq9u',
-            'jazoest': '21972',
-            '__spin_r': '1007803729',
-            '__spin_b': 'trunk',
-            '__spin_t': '1688760858',
-            '__jssesw': '1',
-            'fb_api_caller_class': 'RelayModern',
-            'fb_api_req_friendly_name': 'BarcelonaProfileRepliesTabQuery',
-            'variables': '{"userID":"314216"}',
-            'server_timestamps': 'true',
-            'doc_id': '6307072669391286',
-        }
+                'lsd': self.FBLSDToken,
+                'variables': json.dumps(
+                    {
+                        'userID': user_id,
+                    }
+                ),
+                'doc_id': '6307072669391286'
+            }
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=payload) as response:
+            async with session.post(url, headers=modified_headers, data=payload) as response:
                 try:
                     text = await response.text()
                     data = json.loads(text)
@@ -321,85 +324,103 @@ class ThreadsAPI:
         threads = data['data']['mediaData']['threads']
         return threads
     
-    async def get_post_id_from_url(self, post_url, options=None):
-        url = post_url
-        headers = {
-            "authority": "www.threads.net",
-            "accept": "*/*",
-            'accept-language': 'en-US,en;q=0.9',
-            "cache-control": "no-cache",
-            "origin": "https://www.threads.net",
-            "pragma": "no-cache",
-            "referer": post_url,
-            "x-asbd-id": "129477",
-            "x-fb-lsd": self.fbLSDToken,
-            "x-ig-app-id": "238260118697367",
-        }
+    async def follow_user(self, user_id: str) -> bool:
+        """
+        Follows a user with the given user ID.
 
+        Args:
+            user_id (str): The ID of the user to follow.
+
+        Returns:
+            bool: True if the user was followed successfully, False otherwise.
+
+        Raises:
+            Exception: If an error occurs during the follow process.
+        """
+        if not self.is_logged_in:
+            raise Exception("The action 'follow' can only be perfomed while logged-in")
+        
+        res = await self.__auth_required_post_request(f"{BASE_URL}/friendships/create/{user_id}/")
+        return res["status"] == "ok"
+
+    async def unfollow_user(self, user_id: str) -> bool:
+        """
+        Unfollows a user with the given user ID.
+
+        Args:
+            user_id (str): The ID of the user to unfollow.
+
+        Returns:
+            bool: True if the user was unfollowed successfully, False otherwise.
+
+        Raises:
+            Exception: If an error occurs during the unfollow process.
+        """
+        if not self.is_logged_in:
+            raise Exception("The action 'unfollow' can only be perfomed while logged-in")
+        
+        res = await self.__auth_required_post_request(f"{BASE_URL}/friendships/destroy/{user_id}/")
+        return res["status"] == "ok"
+
+
+    async def get_post_id_from_url(self, post_url):
+        """
+        Retrieves the post ID from a given URL.
+
+        Args:
+            post_url (str): The URL of the post.
+        Returns:
+            str: The post ID if found, or None if the post ID is not found.
+
+        Raises:
+            Exception: If an error occurs during the post ID retrieval process.
+        """        
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as response:
+            async with session.get(post_url, headers=await self._get_public_headers()) as response:
                 text = await response.text()
 
         text = text.replace('\\s', "").replace('\\n', "")
         post_id = re.search(r'"props":{"post_id":"(\d+)"},', text)
         return post_id.group(1)
 
-    async def get_post(self, thread_id: str):
+    async def get_post(self, post_id: str):
+        """
+        Retrieves the post information for a given post ID.
+
+        Args:
+            post_id (str): The ID of the post.
+
+        Returns:
+            dict: A dictionary representing the post information.
+
+        Raises:
+            Exception: If an error occurs during the post retrieval process.
+        """
         url = 'https://www.threads.net/api/graphql'
-        headers = {
-            'authority': 'www.threads.net',
-            'accept': '*/*',
-            'accept-language': 'en-US,en;q=0.9',
-            'content-type': 'application/x-www-form-urlencoded',
-            'origin': 'https://www.threads.net',
-            'referer': f'https://www.threads.net/t/{thread_id}',
-            'sec-ch-prefers-color-scheme': 'light',
-            'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-            'sec-ch-ua-full-version-list': '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.199", "Google Chrome";v="114.0.5735.199"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'sec-ch-ua-platform-version': '"15.0.0"',
+        
+        modified_headers = copy.deepcopy(await self._get_public_headers())
+
+        modified_headers.update({
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-origin',
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'viewport-width': '897',
-            'x-asbd-id': '129477',
             'x-fb-friendly-name': 'BarcelonaPostPageQuery',
-            'x-fb-lsd': 'bUryVn_O9_i_D9F7WOqEpA',
-            'x-ig-app-id': '238260118697367',
-        }
-
-        payload = {
-        'av': '0',
-        '__user': '0',
-        '__a': '1',
-        '__req': '1',
-        '__hs': '19545.HYP:barcelona_web_pkg.2.1..0.0',
-        'dpr': '1',
-        '__ccg': 'EXCELLENT',
-        '__rev': '1007805316',
-        '__s': 'tygnis:dyq74i:zuyk3e',
-        '__hsi': '7253177132820350526',
-        '__dyn': '7xeUmwlEnwn8K2WnFw9-2i5U4e0yoW3q32360CEbo1nEhw2nVE4W0om78b87C0yE5ufz81s8hwGwQw9m1YwBgao6C0Mo5W3S7Udo5qfK0EUjwGzE2swwwNwKwHw8Xxm16waCm7-0iK2S3qazo7u0zE2ZwrUdUcobU2cwmo6O0A8pw',
-        '__csr': 'hI_yaUBb9sE01kRm1syToiwHc0sW1czEgDc11wwG0Qk1Hw1Co40tixLOw',
-        '__comet_req': '29',
-        'lsd': 'bUryVn_O9_i_D9F7WOqEpA',
-        'jazoest': '21915',
-        '__spin_r': '1007805316',
-        '__spin_b': 'trunk',
-        '__spin_t': '1688761899',
-        '__jssesw': '1',
-        'fb_api_caller_class': 'RelayModern',
-        'fb_api_req_friendly_name': 'BarcelonaPostPageQuery',
-        'variables': '{"postID":"3141737961795561608"}',
-        'server_timestamps': 'true',
-        'doc_id': '6529829603744567',
-        }
+            'x-fb-lsd': self.FBLSDToken,
+        })
         
+        payload = {
+                'lsd': self.FBLSDToken,
+                'variables': json.dumps(
+                    {
+                        'postID': post_id,
+                    }
+                ),
+                'doc_id': '5587632691339264',
+            }
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=payload) as response:
+            async with session.post(url, headers=modified_headers, data=payload) as response:
                 try:
                     text = await response.text()
                     data = json.loads(text)
@@ -409,9 +430,70 @@ class ThreadsAPI:
         threads = data['data']['data']
         return threads
     
+    async def get_post_likes(self, post_id:int):
+        """
+        Retrieves the likes for a post with the given post ID.
+
+        Args:
+            post_id (int): The ID of the post.
+
+        Returns:
+            list: A list of users who liked the post.
+
+        Raises:
+            Exception: If an error occurs during the post likes retrieval process.
+        """
+        url = 'https://www.threads.net/api/graphql'
+        
+        modified_headers = copy.deepcopy(await self._get_public_headers())
+
+        modified_headers.update({
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+            'x-fb-friendly-name': 'BarcelonaPostPageQuery',
+            'x-fb-lsd': self.FBLSDToken,
+        })
+
+        payload = {
+                'lsd': self.FBLSDToken,
+                'variables': json.dumps(
+                    {
+                        'mediaID': post_id,
+                    }
+                ),
+                'doc_id': '9360915773983802',
+            }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=modified_headers, data=payload) as response:
+                try:
+                    text = await response.text()
+                    data = json.loads(text)
+                except (aiohttp.ContentTypeError, json.JSONDecodeError):
+                    raise Exception('Failed to decode response as JSON')
+
+        return data['data']['likers']['users']
+
     async def post(
         self, caption: str, image_path: str = None, url: str = None, parent_post_id: str = None
     ) -> bool:
+        """
+        Creates a new post with the given caption, image, URL, and parent post ID.
+
+        Args:
+            caption (str): The caption of the post.
+            image_path (str, optional): The path to the image file to be posted. Defaults to None.
+            url (str, optional): The URL to be attached to the post. Defaults to None.
+            parent_post_id (str, optional): The ID of the parent post if this post is a reply. Defaults to None.
+
+        Returns:
+            bool: True if the post was created successfully, False otherwise.
+
+        Raises:
+            Exception: If an error occurs during the post creation process.
+        """
         def __get_app_headers() -> dict:
             headers = {
                 "User-Agent": f"Barcelona 289.0.0.77.109 Android",
@@ -561,17 +643,3 @@ class ThreadsAPI:
         except Exception as e:
             print("[ERROR] ", e)
             raise
-
-    async def follow_user(self, user_id: str) -> bool:
-        if not self.is_logged_in:
-            raise Exception("The action 'follow' can only be perfomed while logged-in")
-        
-        res = await self.__auth_required_post_request(f"{BASE_URL}/friendships/create/{user_id}/")
-        return res["status"] == "ok"
-
-    async def unfollow_user(self, user_id: str) -> bool:
-        if not self.is_logged_in:
-            raise Exception("The action 'unfollow' can only be perfomed while logged-in")
-        
-        res = await self.__auth_required_post_request(f"{BASE_URL}/friendships/destroy/{user_id}/")
-        return res["status"] == "ok"

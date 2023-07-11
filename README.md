@@ -10,7 +10,9 @@ Inspired by [NPM Threads-API](https://github.com/junhoyeo/threads-api)
 
 # Threads API - Python
 
-Threads API is an unofficial Python client for Meta's Threads API. It allows you to interact with the API to login, post, retrieve user profile information, user IDs and user profile threads.
+Threads API is an unofficial Python client for Meta's Threads API. It allows you to interact with the API to login, read and publish posts, view who liked a post, retrieve user profile information, follow/unfollow and much more.
+
+It is built using `aiohttp` to ease asynchronous execution of the API, for ⚡ super-fast ⚡ results.
 
 Table of content:
 
@@ -47,7 +49,7 @@ load_dotenv()
 
 async def post():
     threads_api = ThreadsAPI()
-    await threads_api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    await threads_api.login(os.environ.get('INSTAGRAM_USERNAME'), os.environ.get('INSTAGRAM_PASSWORD'))
     result = await threads_api.post("I am posting this from the threads api!")
 
     if result:
@@ -100,7 +102,7 @@ async def get_user_profile():
     user_id = await threads_api.get_user_id_from_username(username)
 
     if user_id:
-        user_profile = await threads_api.get_user_profile(username, user_id)
+        user_profile = await threads_api.get_user_profile(user_id)
         print(f"User profile for '{username}':")
         print(f"Name: {user_profile['username']}")
         print(f"Bio: {user_profile['biography']}")
@@ -119,17 +121,17 @@ Followers: 2288633
 </details>
 
 <details>
-  <summary>"get_user_profile_threads" Function</summary>
+  <summary>"get_user_threads" Function</summary>
 
 ``` python
-async def get_user_profile_threads():
+async def get_user_threads():
     threads_api = ThreadsAPI()
 
     username = "zuck"
     user_id = await threads_api.get_user_id_from_username(username)
 
     if user_id:
-        threads = await threads_api.get_user_profile_threads(username, user_id)
+        threads = await threads_api.get_user_threads(user_id)
         print(f"The threads for user '{username}' are:")
         for thread in threads:
             print(f"Text: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
@@ -154,17 +156,17 @@ zuck's Post: {'text': "Let's do this. Welcome to Threads. 🔥"} || Likes: 16698
 
 
 <details>
-  <summary>"get_user_profile_replies" Function</summary>
+  <summary>"get_user_replies" Function</summary>
 
 ``` python
-async def get_user_profile_replies():
+async def get_user_replies():
     threads_api = ThreadsAPI()
 
     username = "zuck"
     user_id = await threads_api.get_user_id_from_username(username)
 
     if user_id:
-        threads = await threads_api.get_user_profile_replies(username, user_id)
+        threads = await threads_api.get_user_replies(user_id)
         print(f"The replies for user '{username}' are:")
         for thread in threads:
             print(f"-\n{thread['thread_items'][0]['post']['user']['username']}'s Post: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
@@ -269,6 +271,38 @@ winchester_757's Reply: {'text': 'Only 10 mil more to match the big guy'} || Lik
 </details>
 
 <details>
+  <summary>"get_post_likes" Function</summary>
+
+``` python
+async def get_post_likes():
+    api = ThreadsAPI()
+    post_url = "https://www.threads.net/t/CuZsgfWLyiI"
+
+    post_id = await api.get_post_id_from_url(post_url)
+
+    likes = await api.get_post_likes(post_id)
+    number_of_likes_to_display = 10
+
+    for user_info in likes[:number_of_likes_to_display]:
+        print(f'Username: {user_info["username"]} || Full Name: {user_info["full_name"]} || Follower Count: {user_info["follower_count"]} ')
+```
+
+Example Output:
+```
+Username: andrew_votava || Full Name: Andrew Votava || Follower Count: 19 
+Username: herson_theeog || Full Name: Herson_theeOG || Follower Count: 323 
+Username: dhruv___kanojia || Full Name: Dhruv🌟 || Follower Count: 38 
+Username: codecrusadepk || Full Name: Code Crusade || Follower Count: 9 
+Username: toxicated_jeshim_007 || Full Name: Jeshim Akhtar Choudhury || Follower Count: 6 
+Username: jay.rex.official || Full Name: Jay Rex || Follower Count: 30 
+Username: jessy.servin || Full Name: Jessica Servín || Follower Count: 343 
+Username: joshxmadrid || Full Name: Josh Madrid || Follower Count: 1092 
+Username: ganjipro || Full Name: Song Ganji || Follower Count: 1649 
+Username: bilalmuhamadi || Full Name: B I L A L  M U H A M A D I || Follower Count: 111 
+```
+</details>
+
+<details>
   <summary>"post" Function</summary>
 
 ``` python
@@ -292,27 +326,28 @@ Post has been successfully posted
 
 ## 📌 Roadmap
 
-- [x] ✅ Login as User
-- [x] ✅ Write Posts
+- [x] ✅ Login functionality 🔒
+- [x] ✅ Write Posts (Requires Login 🔒)
   - [x] ✅ Posts with just text
   - [x] ✅ Posts with text and an image
   - [x] ✅ Posts with text that share a url
-- [x] ✅ Perform Actions
+  - [ ] 🚧 Post with text and share a video
+  - [ ] 🚧 Reply to Posts
+- [x] ✅ Perform Actions (Requires Login 🔒)
   - [x] ✅ Like Posts
   - [x] ✅ Unlike Posts
   - [x] ✅ Follow User
   - [x] ✅ Unfollow User
-- [x] ✅ Read Data\
+- [x] ✅ Read Data
   - [x] ✅ Read a user_id (eg. `314216`) via username(eg. `zuck`)
-  - [x] ✅ Read user profile info
-  - [x] ✅ Read list of user Threads
-  - [x] ✅ Read list of user Replies
+  - [x] ✅ Read a user's profile info
+  - [x] ✅ Read list of a user's Threads
+  - [x] ✅ Read list of a user's Replies
   - [x] ✅ Read Post and a list of its Replies
-- [ ] 🚧  Upload images and videos
-- [ ] 🚧  Reply to Posts
+  - [x] ✅ View who liked a post
 - [x] ✅  CI/CD
-  - [ ] 🚧  Pytest
   - [x] ✅  GitHub Actions Pipeline
+  - [ ] 🚧  Pytest
 
 
 # License
