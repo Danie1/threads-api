@@ -16,6 +16,14 @@ import time
 import traceback
 import copy
 
+import secrets
+from base64 import urlsafe_b64encode as b64e, urlsafe_b64decode as b64d
+
+from cryptography.fernet import Fernet
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
 BASE_URL = "https://i.instagram.com/api/v1"
 LOGIN_URL = BASE_URL + "/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/"
 POST_URL_TEXTONLY = BASE_URL + "/media/configure_text_only_post/"
@@ -46,6 +54,43 @@ class ThreadsAPIOptions:
     def __init__(self, token: Optional[str] = None):
         self.token = token
 
+class SimpleEncDec:
+    backend = default_backend()
+    iterations = 100_000
+
+    @staticmethod
+    def _derive_key(password: bytes, salt: bytes, iterations: int = iterations) -> bytes:
+        """Derive a secret key from a given password and salt"""
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(), length=32, salt=salt,
+            iterations=iterations, backend=SimpleEncDec.backend)
+        return b64e(kdf.derive(password))
+
+    @staticmethod
+    def password_encrypt(message: bytes, password: str, iterations: int = iterations) -> bytes:
+        salt = secrets.token_bytes(16)
+        key = SimpleEncDec._derive_key(password.encode(), salt, iterations)
+        return b64e(
+            b'%b%b%b' % (
+                salt,
+                iterations.to_bytes(4, 'big'),
+                b64d(Fernet(key).encrypt(message)),
+            )
+        )
+
+    @staticmethod
+    def password_decrypt(token: bytes, password: str) -> bytes:
+        decoded = b64d(token)
+        salt, iter, token = decoded[:16], decoded[16:20], b64e(decoded[20:])
+        iterations = int.from_bytes(iter, 'big')
+        key = SimpleEncDec._derive_key(password.encode(), salt, iterations)
+        return Fernet(key).decrypt(token)
+
+class LoggedOutException(Exception):
+     def __init__(self, message):            
+        # Call the base class constructor with the parameters it needs
+        super().__init__(message)
+
 class ThreadsAPI:
     def __init__(self, options: Optional[ThreadsAPIOptions] = None):
         self.token = None
@@ -55,6 +100,7 @@ class ThreadsAPI:
             self.token = options.token
 
         self.is_logged_in = False
+        self.auth_headers = None
 
         self.FBLSDToken = 'NjppQDEgONsU_1LCzrmp6q'
 
@@ -76,7 +122,7 @@ class ThreadsAPI:
         self.FBLSDToken = token
         return self.FBLSDToken
     
-    async def login(self, username, password):
+    async def login(self, username, password, cached_token_path=None):
         """
         Logs in the user with the provided username and password.
 
@@ -90,11 +136,44 @@ class ThreadsAPI:
         Raises:
             Exception: If the username or password are invalid, or if an error occurs during login.
         """
+        def _save_token_to_cache(cached_token_path, token, password):
+            with open(cached_token_path, "wb") as fd:
+                fd.write(SimpleEncDec.password_encrypt(token.encode(), password))
+            return
+
+        def _get_token_from_cache(cached_token_path, password):
+            with open(cached_token_path, "rb") as fd:
+                encrypted_token = fd.read()
+            return SimpleEncDec.password_decrypt(encrypted_token, password).decode()
+        
+        async def _set_logged_in_state(username, token):
+            self.token = token
+            self.user_id = await self.get_user_id_from_username(username)
+            self.auth_headers = {
+                'Authorization': f'Bearer IGT:2:{self.token}',
+                'User-Agent': 'Barcelona 289.0.0.77.109 Android',
+                'Sec-Fetch-Site': 'same-origin',
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            }
+
+            self.is_logged_in = True
+            return
+
         if username is None or password is None:
             raise Exception("Username or password are invalid")
 
         self.username = username
 
+        # Look in cache before logging in.
+        if cached_token_path is not None and os.path.exists(cached_token_path):
+            try:
+                await _set_logged_in_state(username, _get_token_from_cache(cached_token_path, password))
+                
+                return True
+            except LoggedOutException as e:
+                print(f"[Error] {e}. Attempting to re-login.")
+                pass
+            
         try:
             blockVersion = "5f56efad68e1edec7801f630b5c122704ec5378adbee6609a448f105f34a9c73"
             headers = {
@@ -133,16 +212,11 @@ class ThreadsAPI:
                 pos = pos[1]
                 pos = pos.split("==")[0]
                 token = f"{pos}=="
-                self.token = token
-
-                self.user_id = await self.get_user_id_from_username(username)
-                self.auth_headers = {
-                    'Authorization': f'Bearer IGT:2:{self.token}',
-                    'User-Agent': 'Barcelona 289.0.0.77.109 Android',
-                    'Sec-Fetch-Site': 'same-origin',
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                }
-                self.is_logged_in = True
+                
+                await _set_logged_in_state(username, token)
+                
+                if cached_token_path is not None:
+                    _save_token_to_cache(cached_token_path, token)
                 return True
             else:
                 raise Exception("Error with the login response")
@@ -168,10 +242,14 @@ class ThreadsAPI:
             str: The user ID if found, or None if the user ID is not found.
         """
         if self.is_logged_in:
-            url = BASE_URL + "/users/{username}/usernameinfo/"
+            url = BASE_URL + f"/users/{username}/usernameinfo/"
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=self.auth_headers) as response:
                     data = await response.json()
+                    
+                    if 'message' in data and data['message'] == "login_required" or \
+                        'status' in data and data['status'] == 'fail':
+                        raise LoggedOutException(str(data))
                     user_id = int(data['user']['pk'])
                     return user_id
         else:
@@ -639,7 +717,8 @@ class ThreadsAPI:
                     if response.status == 200:
                         return True
                     else:
-                        raise Exception("Failed to post")
+                        print(response)
+                        raise Exception("Failed to post. Got response:\n" + str(response))
         except Exception as e:
             print("[ERROR] ", e)
             raise
