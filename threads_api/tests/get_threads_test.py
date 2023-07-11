@@ -12,5 +12,5 @@ async def test_get_posts_by_username():
         return
     assert isinstance(id, str)
 
-    threads = await threads_api.get_user_profile_threads(username, id)
+    threads = await threads_api.get_user_threads(username, id)
     assert isinstance(threads, list)
