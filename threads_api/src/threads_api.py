@@ -229,6 +229,10 @@ class ThreadsAPI:
             async with session.post(url, headers=self.auth_headers) as response:
                 return await response.json()
     
+    async def __auth_required_get_request(self, url: str):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=self.auth_headers) as response:
+                return await response.json()
     
 
     async def get_user_id_from_username(self, username: str) -> str:
@@ -401,7 +405,21 @@ class ThreadsAPI:
 
         threads = data['data']['mediaData']['threads']
         return threads
-    
+
+    async def get_user_followers(self, user_id: str) -> bool:
+        if not self.is_logged_in:
+            raise Exception("The action 'get_user_followers' can only be perfomed while logged-in")
+        
+        res = await self.__auth_required_get_request(f"{BASE_URL}/friendships/{user_id}/followers")
+        return res
+
+    async def get_user_following(self, user_id: str) -> bool:
+        if not self.is_logged_in:
+            raise Exception("The action 'get_user_following' can only be perfomed while logged-in")
+        
+        res = await self.__auth_required_get_request(f"{BASE_URL}/friendships/{user_id}/following")
+        return res
+
     async def follow_user(self, user_id: str) -> bool:
         """
         Follows a user with the given user ID.
@@ -416,7 +434,7 @@ class ThreadsAPI:
             Exception: If an error occurs during the follow process.
         """
         if not self.is_logged_in:
-            raise Exception("The action 'follow' can only be perfomed while logged-in")
+            raise Exception("The action 'follow_user' can only be perfomed while logged-in")
         
         res = await self.__auth_required_post_request(f"{BASE_URL}/friendships/create/{user_id}/")
         return res["status"] == "ok"
@@ -435,12 +453,68 @@ class ThreadsAPI:
             Exception: If an error occurs during the unfollow process.
         """
         if not self.is_logged_in:
-            raise Exception("The action 'unfollow' can only be perfomed while logged-in")
+            raise Exception("The action 'unfollow_user' can only be perfomed while logged-in")
         
         res = await self.__auth_required_post_request(f"{BASE_URL}/friendships/destroy/{user_id}/")
         return res["status"] == "ok"
 
+    async def like_post(self, post_id: str) -> bool:
+        """
+        Likes a post with the given ID.
 
+        Args:
+            user_id (str): The ID of the post to like.
+
+        Returns:
+            bool: True if the post was liked successfully, False otherwise.
+
+        Raises:
+            Exception: If an error occurs during the like process.
+        """
+        if not self.is_logged_in:
+            raise Exception("The action 'like_post' can only be perfomed while logged-in")
+        
+        res = await self.__auth_required_post_request(f"{BASE_URL}/media/{post_id}_{self.user_id}/like/")
+        return res["status"] == "ok"
+    
+    async def unlike_post(self, post_id: str) -> bool:
+        """
+        Unlikes a post with the given ID.
+
+        Args:
+            user_id (str): The ID of the post to unlike.
+
+        Returns:
+            bool: True if the post was unliked successfully, False otherwise.
+
+        Raises:
+            Exception: If an error occurs during the like process.
+        """
+        if not self.is_logged_in:
+            raise Exception("The action 'unlike_post' can only be perfomed while logged-in")
+        
+        res = await self.__auth_required_post_request(f"{BASE_URL}/media/{post_id}_{self.user_id}/unlike/")
+        return res["status"] == "ok"
+    
+    async def delete_post(self, post_id: str) -> bool:
+        """
+        Deletes a post with the given ID.
+
+        Args:
+            user_id (str): The ID of the post to delete.
+
+        Returns:
+            bool: True if the post was deleted successfully, False otherwise.
+
+        Raises:
+            Exception: If an error occurs during the deletion process.
+        """
+        if not self.is_logged_in:
+            raise Exception("The action 'delete_post' can only be perfomed while logged-in")
+        
+        res = await self.__auth_required_post_request(f"{BASE_URL}/media/{post_id}_{self.user_id}/delete/?media_type=TEXT_POST")
+        return res["status"] == "ok"
+    
     async def get_post_id_from_url(self, post_url):
         """
         Retrieves the post ID from a given URL.
@@ -714,10 +788,12 @@ class ThreadsAPI:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(post_url, headers=headers, data=payload) as response:
-                    if response.status == 200:
-                        return True
+                    data = await response.json()
+
+                    if 'media' in data and 'pk' in data['media']:
+                        # Return the newly created post_id
+                        return data['media']['pk']
                     else:
-                        print(response)
                         raise Exception("Failed to post. Got response:\n" + str(response))
         except Exception as e:
             print("[ERROR] ", e)
