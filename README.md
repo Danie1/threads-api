@@ -66,6 +66,17 @@ loop.run_until_complete(main())
 ```
 
 ## Usage Examples
+View [example.py](https://github.com/Danie1/threads-api/blob/main/example.py) for code examples. 
+At the end of the file you will be able to uncomment and run the individual examples with ease.
+
+Then simply run as:
+```
+# Pass the credentials as environment variables
+USERNAME=<Instagram Username> PASSWORD=<Instagram Password> python3 example.py
+```
+
+### Samples
+
 <details>
   <summary>"get_user_id_from_username" Function</summary>
 
@@ -327,25 +338,29 @@ Post has been successfully posted
 ## 📌 Roadmap
 
 - [x] ✅ Login functionality 🔒
-  - [x] ✅ Cache login token securely (reduce login requests)
+  - [x] ✅ Cache login token securely (reduce login requests / due to restrictive limits)
 - [x] ✅ Write Posts (Requires Login 🔒)
   - [x] ✅ Posts with just text
   - [x] ✅ Posts with text and an image
   - [x] ✅ Posts with text that share a url
+  - [x] ✅ Reply to Posts
   - [ ] 🚧 Post with text and share a video
-  - [ ] 🚧 Reply to Posts
 - [x] ✅ Perform Actions (Requires Login 🔒)
   - [x] ✅ Like Posts
   - [x] ✅ Unlike Posts
+  - [x] ✅ Delete post
   - [x] ✅ Follow User
   - [x] ✅ Unfollow User
-- [x] ✅ Read Data
+- [x] ✅ Read Public Data
   - [x] ✅ Read a user_id (eg. `314216`) via username(eg. `zuck`)
   - [x] ✅ Read a user's profile info
   - [x] ✅ Read list of a user's Threads
   - [x] ✅ Read list of a user's Replies
   - [x] ✅ Read Post and a list of its Replies
   - [x] ✅ View who liked a post
+- [x] ✅ Read Private Data (Requires Login 🔒)
+  - [x] ✅ Read a user's followers list
+  - [x] ✅ Read a user's following list
 - [x] ✅  CI/CD
   - [x] ✅  GitHub Actions Pipeline
   - [ ] 🚧  Pytest

@@ -195,6 +195,100 @@ async def login_with_cache():
     is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
     print(f"Login status: {'Success' if is_success else 'Failed'}")
 
+async def get_user_followers():
+    api = ThreadsAPI()
+
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        username_to_search = "zuck"
+        number_of_likes_to_display = 10
+
+        user_id_to_search = await api.get_user_id_from_username(username_to_search)
+        data = await api.get_user_followers(user_id_to_search)
+        
+        for user in data['users'][0:number_of_likes_to_display]:
+            print(f"Username: {user['username']}")
+
+async def get_user_following():
+    api = ThreadsAPI()
+
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        username_to_search = "zuck"
+        number_of_likes_to_display = 10
+
+        user_id_to_search = await api.get_user_id_from_username(username_to_search)
+        data = await api.get_user_following(user_id_to_search)
+        
+        for user in data['users'][0:number_of_likes_to_display]:
+            print(f"Username: {user['username']}")
+
+# Asynchronously likes a post
+async def like_post():
+    api = ThreadsAPI()
+
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        post_url = "https://www.threads.net/t/CuZsgfWLyiI"
+        post_id = await api.get_post_id_from_url(post_url)
+
+        result = await api.like_post(post_id)
+        
+        print(f"Like status: {'Success' if result else 'Failed'}")
+
+# Asynchronously unlikes a post
+async def unlike_post():
+    api = ThreadsAPI()
+
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        post_url = "https://www.threads.net/t/CuZsgfWLyiI"
+        post_id = await api.get_post_id_from_url(post_url)
+
+        result = await api.unlike_post(post_id)
+        
+        print(f"Unlike status: {'Success' if result else 'Failed'}")
+
+# Asynchronously creates then deletes the same post
+async def create_and_delete_post():
+    api = ThreadsAPI()
+
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        post_id = await api.post("Hello World!")
+        await api.delete_post(post_id)
+
+        print(f"Created and deleted post {post_id} successfully")
+
+# Asynchronously creates then deletes the same post
+async def post_and_reply_to_post():
+    api = ThreadsAPI()
+
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        first_post_id = await api.post("Hello World!")
+        second_post_id = await api.post("Hello World to you too!", parent_post_id=first_post_id)
+
+        print(f"Created parent post {first_post_id} and replied to it with post {second_post_id} successfully")
+
 '''
  Remove the # to run an individual example function wrapper.
 
@@ -218,3 +312,8 @@ async def login_with_cache():
 #asyncio.run(follow_user()) # Follows a user.
 #asyncio.run(unfollow_user()) # Unfollows a user.
 #asyncio.run(login_with_cache()) # Displays token cache capability
+#asyncio.run(get_user_followers()) # Displays users who follow a given user
+#asyncio.run(like_post()) # Likes a post
+#asyncio.run(unlike_post()) # Unlikes a post
+#asyncio.run(create_and_delete_post()) # Creates and deletes the same post
+#asyncio.run(post_and_reply_to_post()) # Post and then reply to the same post
