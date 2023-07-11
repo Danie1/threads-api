@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "threads-api"
-version = "1.0.8"
+version = "1.1.1"
 description = "Unofficial Python client for Meta Threads.net API"
 authors = ["Danie1"]
 readme = "README.md"
@@ -11,6 +11,7 @@ requests = "^2.26.0"
 pytest = "^6.2.4"
 pytest-asyncio = "^0.15.1"
 aiohttp = "^3.8.4"
+cryptography = "^41.0.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

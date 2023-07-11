@@ -22,7 +22,7 @@ async def get_user_threads():
     user_id = await api.get_user_id_from_username(username)
 
     if user_id:
-        threads = await api.get_user_threads(username, user_id)
+        threads = await api.get_user_threads(user_id)
         print(f"The threads for user '{username}' are:")
         for thread in threads:
             print(f"{username}'s Post: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
@@ -181,6 +181,20 @@ async def unfollow_user():
     else:
         print(f"Unable to unfollow {username_to_follow}.")        
 
+# Code example of logging in while storing token encrypted on the file-system
+async def login_with_cache():
+
+    api = ThreadsAPI()
+    
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    # Decrypts the token from the .token file using the password as the key.
+    # This reduces the number of login API calls, to the bare minimum
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
 '''
  Remove the # to run an individual example function wrapper.
 
@@ -203,3 +217,4 @@ async def unfollow_user():
 #asyncio.run(post_include_url()) # Posts a message with a URL.
 #asyncio.run(follow_user()) # Follows a user.
 #asyncio.run(unfollow_user()) # Unfollows a user.
+#asyncio.run(login_with_cache()) # Displays token cache capability

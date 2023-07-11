@@ -49,7 +49,7 @@ load_dotenv()
 
 async def post():
     threads_api = ThreadsAPI()
-    await threads_api.login(os.environ.get('INSTAGRAM_USERNAME'), os.environ.get('INSTAGRAM_PASSWORD'))
+    await threads_api.login(os.environ.get('INSTAGRAM_USERNAME'), os.environ.get('INSTAGRAM_PASSWORD'), cached_token_path=".token")
     result = await threads_api.post("I am posting this from the threads api!")
 
     if result:
@@ -327,7 +327,7 @@ Post has been successfully posted
 ## 📌 Roadmap
 
 - [x] ✅ Login functionality 🔒
-  - [x] 🚧 Cache login token securely (reduce login requests)
+  - [x] ✅ Cache login token securely (reduce login requests)
 - [x] ✅ Write Posts (Requires Login 🔒)
   - [x] ✅ Posts with just text
   - [x] ✅ Posts with text and an image
