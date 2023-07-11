@@ -24,7 +24,7 @@ Table of content:
 * [License](#license)
 
 # Demo
-<img src="https://raw.githubusercontent.com/Danie1/threads-api/main/.github/user_example2.jpeg" alt="drawing" width="500"/>
+<img src="https://raw.githubusercontent.com/Danie1/threads-api/main/.github/user_example2.jpg" alt="drawing" width="500"/>
 
 
 ## Getting Started
