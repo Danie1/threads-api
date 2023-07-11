@@ -327,6 +327,7 @@ Post has been successfully posted
 ## 📌 Roadmap
 
 - [x] ✅ Login functionality 🔒
+  - [x] 🚧 Cache login token securely (reduce login requests)
 - [x] ✅ Write Posts (Requires Login 🔒)
   - [x] ✅ Posts with just text
   - [x] ✅ Posts with text and an image
