@@ -6,11 +6,11 @@ async def test_get_posts_by_username():
     threads_api = ThreadsAPI()
 
     username = 'zuck'
-    id = await threads_api.get_user_id_from_username(username)
+    user_id = await threads_api.get_user_id_from_username(username)
 
-    if not id:
+    if not user_id:
         return
-    assert isinstance(id, str)
+    assert isinstance(user_id, str)
 
-    threads = await threads_api.get_user_threads(username, id)
+    threads = await threads_api.get_user_threads(user_id)
     assert isinstance(threads, list)
