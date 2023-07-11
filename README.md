@@ -47,7 +47,7 @@ load_dotenv()
 
 async def post():
     threads_api = ThreadsAPI()
-    await threads_api.login(os.environ.get('USERNAME'), os.environ,get('PASSWORD'))
+    await threads_api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
     result = await threads_api.post("I am posting this from the threads api!")
 
     if result:
