@@ -5,7 +5,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
 
 setup(
     name='threads-api',
-    version='1.0.8',
+    version='1.1.0',
     description='Unofficial Python client for Meta Threads.net API',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -14,8 +14,7 @@ setup(
     url='https://github.com/danie1/threads-api',
     packages=find_packages(),
     install_requires=[
-        'aiohttp',
-        'requests',
+        'aiohttp'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
