@@ -141,6 +141,20 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
+name = "instagrapi"
+version = "1.17.13"
+description = "Fast and effective Instagram Private API wrapper"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.dependencies]
+pycryptodomex = "3.18.0"
+pydantic = "1.10.9"
+PySocks = "1.7.1"
+requests = ">=2.25.1,<3.0"
+
+[[package]]
 name = "multidict"
 version = "6.0.4"
 description = "multidict implementation"
@@ -155,6 +169,18 @@ description = "Core utilities for Python packages"
 category = "main"
 optional = false
 python-versions = ">=3.7"
+
+[[package]]
+name = "pillow"
+version = "10.0.0"
+description = "Python Imaging Library (Fork)"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.extras]
+docs = ["furo", "olefile", "sphinx (>=2.4)", "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-removed-in", "sphinxext-opengraph"]
+tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "packaging", "pyroma", "pytest", "pytest-cov", "pytest-timeout"]
 
 [[package]]
 name = "pluggy"
@@ -180,6 +206,37 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 name = "pycparser"
 version = "2.21"
 description = "C parser in Python"
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+
+[[package]]
+name = "pycryptodomex"
+version = "3.18.0"
+description = "Cryptographic library for Python"
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+
+[[package]]
+name = "pydantic"
+version = "1.10.9"
+description = "Data validation and settings management using python type hints"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+typing-extensions = ">=4.2.0"
+
+[package.extras]
+dotenv = ["python-dotenv (>=0.10.4)"]
+email = ["email-validator (>=1.0.3)"]
+
+[[package]]
+name = "pysocks"
+version = "1.7.1"
+description = "A Python SOCKS client module. See https://github.com/Anorov/PySocks for more information."
 category = "main"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
@@ -246,6 +303,14 @@ optional = false
 python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
+name = "typing-extensions"
+version = "4.7.1"
+description = "Backported and Experimental Type Hints for Python 3.7+"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[[package]]
 name = "urllib3"
 version = "2.0.3"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
@@ -274,7 +339,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8.1"
-content-hash = "a32207f921e031bf84bf8884a423f50fc2e64ccd68c01d4f6982489a0877e80c"
+content-hash = "24e4237d7df58561620b7285dc52ff2e93e19213b40508ac0e091360b65e2343"
 
 [metadata.files]
 aiohttp = []
@@ -290,14 +355,20 @@ cryptography = []
 frozenlist = []
 idna = []
 iniconfig = []
+instagrapi = []
 multidict = []
 packaging = []
+pillow = []
 pluggy = []
 py = []
 pycparser = []
+pycryptodomex = []
+pydantic = []
+pysocks = []
 pytest = []
 pytest-asyncio = []
 requests = []
 toml = []
+typing-extensions = []
 urllib3 = []
 yarl = []
