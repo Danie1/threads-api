@@ -171,6 +171,18 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
+name = "pillow"
+version = "10.0.0"
+description = "Python Imaging Library (Fork)"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.extras]
+docs = ["furo", "olefile", "sphinx (>=2.4)", "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-removed-in", "sphinxext-opengraph"]
+tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "packaging", "pyroma", "pytest", "pytest-cov", "pytest-timeout"]
+
+[[package]]
 name = "pluggy"
 version = "1.2.0"
 description = "plugin and hook calling mechanisms for python"
@@ -327,7 +339,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8.1"
-content-hash = "8abfe02436a3332223af95f70216f19d62fad896daecd58b087213d9dcd9b6c1"
+content-hash = "24e4237d7df58561620b7285dc52ff2e93e19213b40508ac0e091360b65e2343"
 
 [metadata.files]
 aiohttp = []
@@ -346,6 +358,7 @@ iniconfig = []
 instagrapi = []
 multidict = []
 packaging = []
+pillow = []
 pluggy = []
 py = []
 pycparser = []
