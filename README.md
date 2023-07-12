@@ -14,6 +14,8 @@ Threads API is an unofficial Python client for Meta's Threads API. It allows you
 
 It is built using `aiohttp` to ease asynchronous execution of the API, for ⚡ super-fast ⚡ results.
 
+> Note: Since v1.1.3 we are using ```instagrapi``` package to login.
+
 Table of content:
 
 * [Demo](#demo)
