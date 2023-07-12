@@ -493,13 +493,17 @@ class ThreadsAPI:
         Raises:
             Exception: If an error occurs during the post ID retrieval process.
         """        
-        async with aiohttp.ClientSession() as session:
-            async with session.get(post_url, headers=await self._get_public_headers()) as response:
-                text = await response.text()
-
-        text = text.replace('\\s', "").replace('\\n', "")
-        post_id = re.search(r'"props":{"post_id":"(\d+)"},', text)
-        return post_id.group(1)
+        if "https://" in post_url and "/@" in post_url:
+            raise Exception(f"Argument {post_url} is not a valid URL")
+        elif "https://" in post_url and "/t" in post_url:
+            shortcode = post_url.split("/t/")[-1].split("/")[0]
+        elif len(post_url) == 11:
+            shortcode = post_url
+        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        id = 0
+        for char in shortcode:
+            id = (id * 64) + alphabet.index(char)
+        return str(id)
 
     async def get_post(self, post_id: str):
         """
