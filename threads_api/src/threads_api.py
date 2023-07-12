@@ -24,6 +24,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+from instagrapi import Client
+
 BASE_URL = "https://i.instagram.com/api/v1"
 LOGIN_URL = BASE_URL + "/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/"
 POST_URL_TEXTONLY = BASE_URL + "/media/configure_text_only_post/"
@@ -148,17 +150,16 @@ class ThreadsAPI:
         
         async def _set_logged_in_state(username, token):
             self.token = token
-            self.user_id = await self.get_user_id_from_username(username)
             self.auth_headers = {
                 'Authorization': f'Bearer IGT:2:{self.token}',
                 'User-Agent': 'Barcelona 289.0.0.77.109 Android',
                 'Sec-Fetch-Site': 'same-origin',
                 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             }
-
             self.is_logged_in = True
+            self.user_id = await self.get_user_id_from_username(username)
             return
-
+        
         if username is None or password is None:
             raise Exception("Username or password are invalid")
 
@@ -173,56 +174,21 @@ class ThreadsAPI:
             except LoggedOutException as e:
                 print(f"[Error] {e}. Attempting to re-login.")
                 pass
+
+        try:      
+            cl = Client()
+            cl.login(username, password)
+            token = cl.private.headers['Authorization'].split("Bearer IGT:2:")[1]
             
-        try:
-            blockVersion = "5f56efad68e1edec7801f630b5c122704ec5378adbee6609a448f105f34a9c73"
-            headers = {
-                "User-Agent": "Barcelona 289.0.0.77.109 Android",
-                "Sec-Fetch-Site": "same-origin",
-                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            }
-            params = json.dumps(
-                {
-                    "client_input_params": {
-                        "password": password,
-                        "contact_point": username,
-                        "device_id": f"android-{random.randint(0, 1e24):x}",
-                    },
-                    "server_params": {
-                        "credential_type": "password",
-                        "device_id": f"android-{random.randint(0, 1e24):x}",
-                    },
-                }
-            )
-            bk_client_context = json.dumps(
-                {"bloks_version": blockVersion, "styles_id": "instagram"}
-            )
-
-            payload = f"params={urllib.parse.quote(params)}&bk_client_context={urllib.parse.quote(bk_client_context)}&bloks_versioning_id={blockVersion}"
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(LOGIN_URL, timeout=60 * 1000, headers=headers, data=payload) as response:
-                    data = await response.text()
-
-            if data == "Oops, an error occurred.":
-                raise Exception("Failed to login")
-
-            pos = data.split("Bearer IGT:2:")
-            if len(pos) > 1:
-                pos = pos[1]
-                pos = pos.split("==")[0]
-                token = f"{pos}=="
-                
-                await _set_logged_in_state(username, token)
-                
-                if cached_token_path is not None:
-                    _save_token_to_cache(cached_token_path, token)
-                return True
-            else:
-                raise Exception("Error with the login response")
+            await _set_logged_in_state(username, token)
+                    
+            if cached_token_path is not None:
+                _save_token_to_cache(cached_token_path, token, password)
         except Exception as e:
             print("[ERROR] ", e)
             raise
+
+        return True
 
     async def __auth_required_post_request(self, url: str):
         async with aiohttp.ClientSession() as session:
