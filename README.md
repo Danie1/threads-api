@@ -20,7 +20,8 @@ Table of content:
 
 * [Demo](#demo)
 * [Getting started](#getting-started)
-  * [Installation](#Installation)
+  * [Installation](#installation)
+* [Supported Features](#supported-features)
 * [Usage Examples](#usage-examples)
 * [Roadmap](#📌-roadmap)
 * [License](#license)
@@ -66,6 +67,32 @@ async def main():
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
 ```
+# Supported Features
+- [x] ✅ Login functionality, including 2FA 🔒
+  - [x] ✅ Cache login token securely (reduce login requests / due to restrictive limits)
+- [x] ✅ Write Posts (Requires Login 🔒)
+  - [x] ✅ Posts with just text
+  - [x] ✅ Posts with text and an image
+  - [x] ✅ Posts with text that share a url
+  - [x] ✅ Reply to Posts
+- [x] ✅ Perform Actions (Requires Login 🔒)
+  - [x] ✅ Like Posts
+  - [x] ✅ Unlike Posts
+  - [x] ✅ Delete post
+  - [x] ✅ Follow User
+  - [x] ✅ Unfollow User
+- [x] ✅ Read Public Data
+  - [x] ✅ Read a user_id (eg. `314216`) via username(eg. `zuck`)
+  - [x] ✅ Read a user's profile info
+  - [x] ✅ Read list of a user's Threads
+  - [x] ✅ Read list of a user's Replies
+  - [x] ✅ Read Post and a list of its Replies
+  - [x] ✅ View who liked a post
+- [x] ✅ Read Private Data (Requires Login 🔒)
+  - [x] ✅ Read a user's followers list
+  - [x] ✅ Read a user's following list
+- [x] ✅  CI/CD
+  - [x] ✅  GitHub Actions Pipeline
 
 ## Usage Examples
 View [example.py](https://github.com/Danie1/threads-api/blob/main/example.py) for code examples. 
@@ -338,34 +365,11 @@ Post has been successfully posted
 </details>
 
 ## 📌 Roadmap
-
-- [x] ✅ Login functionality 🔒
-  - [x] ✅ Cache login token securely (reduce login requests / due to restrictive limits)
-- [x] ✅ Write Posts (Requires Login 🔒)
-  - [x] ✅ Posts with just text
-  - [x] ✅ Posts with text and an image
-  - [x] ✅ Posts with text that share a url
-  - [x] ✅ Reply to Posts
-  - [ ] 🚧 Post with text and share a video
-- [x] ✅ Perform Actions (Requires Login 🔒)
-  - [x] ✅ Like Posts
-  - [x] ✅ Unlike Posts
-  - [x] ✅ Delete post
-  - [x] ✅ Follow User
-  - [x] ✅ Unfollow User
-- [x] ✅ Read Public Data
-  - [x] ✅ Read a user_id (eg. `314216`) via username(eg. `zuck`)
-  - [x] ✅ Read a user's profile info
-  - [x] ✅ Read list of a user's Threads
-  - [x] ✅ Read list of a user's Replies
-  - [x] ✅ Read Post and a list of its Replies
-  - [x] ✅ View who liked a post
-- [x] ✅ Read Private Data (Requires Login 🔒)
-  - [x] ✅ Read a user's followers list
-  - [x] ✅ Read a user's following list
-- [x] ✅  CI/CD
-  - [x] ✅  GitHub Actions Pipeline
-  - [ ] 🚧  Pytest
+- [ ] 🚧 Read feed, notifications
+- [ ] 🚧 Post text and share a video
+- [ ] 🚧 Documentation Improvements
+- [ ] 🚧 CI/CD Improvements
+  - [ ] 🚧 Add coverage Pytest
 
 
 # License
