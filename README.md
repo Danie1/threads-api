@@ -20,6 +20,7 @@ Table of content:
 
 * [Demo](#demo)
 * [Getting started](#getting-started)
+* [Requirements](#requirements)
   * [Installation](#installation)
 * [Supported Features](#supported-features)
 * [Usage Examples](#usage-examples)
@@ -28,6 +29,14 @@ Table of content:
 
 # Demo
 <img src="https://raw.githubusercontent.com/Danie1/threads-api/main/.github/user_example2.jpg" alt="drawing" width="500"/>
+
+## Requirements
+
+### ⚙️ Installation
+```bash
+pip install -r requirements.txt
+```
+
 
 ## Getting Started
 
