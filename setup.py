@@ -9,18 +9,20 @@ setup(
     description='Unofficial Python client for Meta Threads.net API',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    author='Danie1',
-    author_email='',
+    author='Daniel Saad',
+    author_email='danielsaad777@gmail.com',
     url='https://github.com/danie1/threads-api',
     packages=find_packages(),
     install_requires=[
         'aiohttp'
     ],
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Operating System :: OS Independent',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3',
+
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
     ],
 )
