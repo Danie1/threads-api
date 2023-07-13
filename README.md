@@ -21,6 +21,8 @@ Table of content:
 * [Demo](#demo)
 * [Getting started](#getting-started)
   * [Installation](#installation)
+  * [Set Log Level](#set-desired-log-level)
+* [Contributions](#contributing-to-danie1threads-api)
 * [Supported Features](#supported-features)
 * [Usage Examples](#usage-examples)
 * [Roadmap](#📌-roadmap)
@@ -37,7 +39,7 @@ pip install threads-api
 ```
 or
 ```bash
-poetry install threads-api
+poetry add threads-api
 ```
 
 Example using threads-api to post to Threads.net:
@@ -67,6 +69,60 @@ async def main():
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
 ```
+## Set Desired Log Level
+Threads-API reads the environment variable ```LOG_LEVEL``` and sets the log-level according to its value.
+
+Possible values include: ```DEBUG, INFO, WARNING, ERROR, CRITICAL```
+
+**Log Level defaults to WARNING when not set.**
+
+Useful to know:
+``` bash
+# Set Info (Prints general flow)
+export LOG_LEVEL=INFO
+```
+
+``` bash
+# Set Debug (Prints HTTP Requests + HTTP Responses)
+export LOG_LEVEL=DEBUG
+```
+
+# Contributing to Danie1/threads-api
+## Getting Started
+
+With Poetry (*Recommended*)
+``` bash
+# Step 1: Clone the project
+git clone git@github.com:Danie1/threads-api.git
+
+# Step 2: Install dependencies to virtual environment
+poetry install
+
+# Step 3: Activate virtual environment
+poetry shell
+```
+or
+
+Without Poetry
+
+``` bash
+# Step 1: Clone the project
+git clone git@github.com:Danie1/threads-api.git
+
+# Step 2: Create virtual environment
+python3 -m venv env
+
+# Step 3 (Unix/MacOS): Activate virtual environment
+source env/bin/activate # Unix/MacOS
+
+# Step 3 (Windows): Activate virtual environment
+.\env\Scripts\activate # Windows
+
+# Step 4: Install dependencies
+pip install -r requirements.txt
+```
+
+
 # Supported Features
 - [x] ✅ Login functionality, including 2FA 🔒
   - [x] ✅ Cache login token securely (reduce login requests / due to restrictive limits)
@@ -81,6 +137,12 @@ loop.run_until_complete(main())
   - [x] ✅ Delete post
   - [x] ✅ Follow User
   - [x] ✅ Unfollow User
+  - [x] ✅ Block User
+  - [x] ✅ Unblock User
+  - [x] ✅ Restrict User
+  - [x] ✅ Unrestrict User
+  - [x] ✅ Mute User
+  - [x] ✅ Unmute User
 - [x] ✅ Read Public Data
   - [x] ✅ Read a user_id (eg. `314216`) via username(eg. `zuck`)
   - [x] ✅ Read a user's profile info
