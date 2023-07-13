@@ -311,7 +311,7 @@ class ThreadsAPI:
                         'userID': user_id,
                     }
                 ),
-                'doc_id': '6307072669391286'
+                'doc_id': '6232751443445612'
             }
         
         async with aiohttp.ClientSession() as session:
