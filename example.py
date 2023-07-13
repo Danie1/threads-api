@@ -1,6 +1,7 @@
 from threads_api.src.threads_api import ThreadsAPI
 import asyncio
 import os
+import logging
 
 # Asynchronously gets the user ID from a username
 async def get_user_id_from_username():
@@ -104,7 +105,7 @@ async def get_post_likes():
 # Asynchronously posts a message
 async def post():
     api = ThreadsAPI()
-    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'), cached_token_path=".token")
     print(f"Login status: {'Success' if is_success else 'Failed'}")
 
     if is_success:
@@ -118,7 +119,7 @@ async def post():
 # Asynchronously posts a message with an image
 async def post_include_image():
     api = ThreadsAPI()
-    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'), cached_token_path=".token")
     print(f"Login status: {'Success' if is_success else 'Failed'}")
 
     result = False
@@ -133,7 +134,7 @@ async def post_include_image():
 # Asynchronously posts a message with a URL
 async def post_include_url():
     api = ThreadsAPI()
-    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'), cached_token_path=".token")
     print(f"Login status: {'Success' if is_success else 'Failed'}")
 
     result = False
@@ -150,7 +151,7 @@ async def follow_user():
     username_to_follow = "zuck"
 
     api = ThreadsAPI()
-    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'), cached_token_path=".token")
     print(f"Login status: {'Success' if is_success else 'Failed'}")
 
     result = False
@@ -168,7 +169,7 @@ async def unfollow_user():
     username_to_follow = "zuck"
 
     api = ThreadsAPI()
-    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'))
+    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'), cached_token_path=".token")
     print(f"Login status: {'Success' if is_success else 'Failed'}")
 
     result = False
@@ -289,6 +290,31 @@ async def post_and_reply_to_post():
 
         print(f"Created parent post {first_post_id} and replied to it with post {second_post_id} successfully")
 
+async def block_and_unblock_user():
+    api = ThreadsAPI()
+
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        username = "zuck"
+        user_id = await api.get_user_id_from_username(username)
+        resp = await api.block_user(user_id)
+
+        print(f"Blocking status: {'Blocked' if resp['friendship_status']['blocking'] else 'Unblocked'}")
+
+        resp = await api.unblock_user(user_id)
+
+        print(f"Blocking status: {'Blocked' if resp['friendship_status']['blocking'] else 'Unblocked'}")
+
+    return
+
+async def restrict_and_unrestrict_user():
+    return
+
+async def mute_and_unmute_user():
+    return
 '''
  Remove the # to run an individual example function wrapper.
 
@@ -317,3 +343,4 @@ async def post_and_reply_to_post():
 #asyncio.run(unlike_post()) # Unlikes a post
 #asyncio.run(create_and_delete_post()) # Creates and deletes the same post
 #asyncio.run(post_and_reply_to_post()) # Post and then reply to the same post
+#asyncio.run(block_and_unblock_user()) # Blocks and unblocks a user 
