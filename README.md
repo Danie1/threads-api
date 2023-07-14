@@ -126,6 +126,7 @@ pip install -r requirements.txt
 # Supported Features
 - [x] ✅ Login functionality, including 2FA 🔒
   - [x] ✅ Cache login token securely (reduce login requests / due to restrictive limits)
+- [x] ✅ Read recommended posts from timeline (Requires Login 🔒)
 - [x] ✅ Write Posts (Requires Login 🔒)
   - [x] ✅ Posts with just text
   - [x] ✅ Posts with text and an image
