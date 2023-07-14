@@ -315,6 +315,36 @@ async def restrict_and_unrestrict_user():
 
 async def mute_and_unmute_user():
     return
+
+async def get_timeline():
+    api = ThreadsAPI()
+
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        resp = await api.get_timeline()
+
+        print(f"Number of results fetched: {resp['num_results']}\n")
+
+        post_index = 1
+        for post in resp['items'][:resp['num_results']]:
+            print(f"Item [{post_index}] -> Caption: [{post['thread_items'][0]['post']['caption']['text']}]\n")
+            post_index += 1
+
+        # see if you can load more items from the timeline
+        if 'more_available' in resp:
+            next_max_id = resp['next_max_id']
+            resp = await api.get_timeline(next_max_id)
+
+            for post in resp['items'][:resp['num_results']]:
+                print(f"Item [{post_index}] -> Caption: [{post['thread_items'][0]['post']['caption']['text']}]\n")
+                post_index += 1
+
+
+    return
+
 '''
  Remove the # to run an individual example function wrapper.
 
@@ -344,3 +374,4 @@ async def mute_and_unmute_user():
 #asyncio.run(create_and_delete_post()) # Creates and deletes the same post
 #asyncio.run(post_and_reply_to_post()) # Post and then reply to the same post
 #asyncio.run(block_and_unblock_user()) # Blocks and unblocks a user 
+#asyncio.run(get_timeline()) # Display items from the timeline

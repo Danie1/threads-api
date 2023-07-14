@@ -121,15 +121,17 @@ class ThreadsAPI:
 
         self.FBLSDToken = 'NjppQDEgONsU_1LCzrmp6q'
 
+        self.instagrapi_client = Client()
+        
     def set_log_level(self, log_level):
         self.log_level = log_level
         logging.basicConfig(level=self.log_level, format='%(levelname)s:%(message)s')
 
     def log_request(self, type, url, header, payload=""):
-        self.logger.debug(f'{Fore.GREEN}-\nRequest [{Style.RESET_ALL}{type}{Fore.GREEN}] -> URL: [{Style.RESET_ALL}{url}{Fore.GREEN}]\nHeader: [{Style.RESET_ALL}{header}{Fore.GREEN}]\n Response: [{Style.RESET_ALL}{payload}{Fore.GREEN}]\n-{Style.RESET_ALL}')
+        self.logger.debug(f'{Fore.GREEN}-\nRequest [{Style.RESET_ALL}{type}{Fore.GREEN}] -> URL: [{Style.RESET_ALL}{url}{Fore.GREEN}]\nHeader: [{Style.RESET_ALL}{header}{Fore.GREEN}]\nRequest Payload: [{Style.RESET_ALL}{payload}{Fore.GREEN}]\n-{Style.RESET_ALL}')
 
     def log_response(self, url, resp):
-        self.logger.debug(f'{Fore.GREEN}-\nResponse -> URL: [{Style.RESET_ALL}{url}{Fore.GREEN}] Response: [{Style.RESET_ALL}{resp}{Fore.GREEN}]\n-{Style.RESET_ALL}')
+        self.logger.debug(f'{Fore.GREEN}-\nResponse -> URL: [{Style.RESET_ALL}{url}{Fore.GREEN}]\nResponse Payload: [{Style.RESET_ALL}{resp}{Fore.GREEN}]\n-{Style.RESET_ALL}')
         return resp
 
 
@@ -212,10 +214,10 @@ class ThreadsAPI:
                 pass
 
         try:
-            cl = Client()
+            
             self.logger.info("Attempting to login")
-            cl.login(username, password)
-            token = cl.private.headers['Authorization'].split("Bearer IGT:2:")[1]
+            self.instagrapi_client.login(username, password, relogin, verification_code)
+            token = self.instagrapi_client.private.headers['Authorization'].split("Bearer IGT:2:")[1]
             
             await _set_logged_in_state(username, token)
                     
@@ -233,7 +235,10 @@ class ThreadsAPI:
             async with session.post(url, headers=self.auth_headers) as response:
                 resp = await response.json()
                 self.log_response(url, resp)
-                return 
+
+                if resp['status'] == 'fail':
+                    raise Exception(f"Request Failed: [{resp['message']}]")
+                return resp
     
     async def __auth_required_get_request(self, url: str):
         async with aiohttp.ClientSession() as session:
@@ -265,7 +270,16 @@ class ThreadsAPI:
                     
                     if 'message' in data and data['message'] == "login_required" or \
                         'status' in data and data['status'] == 'fail':
+                        if 'User not onboarded' in data['message']:
+                            raise Exception(f"User {username} is not onboarded to threads.net")
+                        elif 'challenge_required' in data['message'] and \
+                           'challenge' in data and 'url' in data['challenge'] and \
+                            'https://www.instagram.com/accounts/suspended/' in data['challenge']['url']:
+                            raise Exception(f"User {username} is suspended from threads.net :(")
+                        
+                        # Cross fingers you reach this exception and not the previous ones
                         raise LoggedOutException(str(data))
+                    
                     user_id = int(data['user']['pk'])
                     return user_id
         else:
@@ -658,6 +672,50 @@ class ThreadsAPI:
                     raise Exception('Failed to decode response as JSON')
 
         return data['data']['likers']['users']
+
+    async def get_timeline(self, maxID=None):
+        """
+        Get timeline for the authenticated user
+
+        Args:
+            maxID (int): The ID token for the next batch of posts
+
+        Returns:
+            list: REST API JSON data response for the get_timeline request
+
+        Raises:
+            Exception: If an error occurs during the timeline retrieval process.
+        """
+        if not self.is_logged_in:
+            raise Exception("The action 'get_timeline' can only be perfomed while logged-in")
+
+        # Check if you have the ID of the next batch to fetch
+        if maxID is None:
+            parameters = {
+                    'pagination_source': 'text_post_feed_threads',
+            }
+        else:
+            parameters = {
+                    'pagination_source': 'text_post_feed_threads',
+                    'maxID': maxID
+            }
+
+        encoded_parameters = urllib.parse.urlencode(parameters)
+
+        url = f'{BASE_URL}/feed/text_post_app_timeline/?{encoded_parameters}'
+        async with aiohttp.ClientSession() as session:
+            self.log_request('POST', url, self.auth_headers)
+            async with session.post(url, 
+                                    headers=self.auth_headers) as response:
+                try:
+                    text = await response.text()
+                    data = json.loads(text)
+                    self.log_response(url, data)
+                except (aiohttp.ContentTypeError, json.JSONDecodeError):
+                    raise Exception('Failed to decode response as JSON')
+        
+        return data
+
 
     async def mute_user(self, user_id):
         """
