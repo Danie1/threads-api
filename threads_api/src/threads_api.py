@@ -216,7 +216,7 @@ class ThreadsAPI:
         try:
             
             self.logger.info("Attempting to login")
-            self.instagrapi_client.login(username, password, relogin, verification_code)
+            self.instagrapi_client.login(username, password)
             token = self.instagrapi_client.private.headers['Authorization'].split("Bearer IGT:2:")[1]
             
             await _set_logged_in_state(username, token)
