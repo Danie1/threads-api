@@ -28,8 +28,9 @@ from instagrapi import Client
 
 import logging
 import sys
-
+from threads_api.src.anotherlogger import log
 from colorama import init, Fore, Style
+import functools
 
 BASE_URL = "https://i.instagram.com/api/v1"
 LOGIN_URL = BASE_URL + "/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/"
@@ -96,6 +97,14 @@ class LoggedOutException(Exception):
         # Call the base class constructor with the parameters it needs
         super().__init__(message)
 
+def require_login(func):
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        if not self.is_logged_in:
+            raise Exception(f"The action '{func.__name__}' can only be perfomed while logged-in")
+        return await func(self, *args, **kwargs)
+    return wrapper
+
 class ThreadsAPI:
     def __init__(self):
         
@@ -113,6 +122,7 @@ class ThreadsAPI:
 
         self.logger = logging.getLogger()
         
+        self._auth_session = None
 
         self.token = None
         self.user_id = None
@@ -121,8 +131,8 @@ class ThreadsAPI:
 
         self.FBLSDToken = 'NjppQDEgONsU_1LCzrmp6q'
 
-        self.instagrapi_client = Client()
-        
+        self.instagrapi_client = None
+
     def set_log_level(self, log_level):
         self.log_level = log_level
         logging.basicConfig(level=self.log_level, format='%(levelname)s:%(message)s')
@@ -134,6 +144,37 @@ class ThreadsAPI:
         self.logger.debug(f'{Fore.GREEN}-\nResponse -> URL: [{Style.RESET_ALL}{url}{Fore.GREEN}]\nResponse Payload: [{Style.RESET_ALL}{resp}{Fore.GREEN}]\n-{Style.RESET_ALL}')
         return resp
 
+    @require_login
+    async def _private_post(self, **kwargs):
+        log(title='PRIVATE REQUEST', type='POST', **kwargs)
+        async with self._auth_session.post(**kwargs) as response:
+            try:
+                text = await response.text()
+                resp = json.loads(text)
+                log(title='PRIVATE RESPONSE', response=resp)
+
+                if resp['status'] == 'fail':
+                    raise Exception(f"Request Failed: [{resp['message']}]")
+            except (aiohttp.ContentTypeError, json.JSONDecodeError):
+                raise Exception('Failed to decode response as JSON')
+            
+            return resp
+
+    @require_login
+    async def _private_get(self, **kwargs):
+        log(title='PRIVATE REQUEST', type='GET', **kwargs)
+        async with self._auth_session.get(**kwargs) as response:
+            try:
+                text = await response.text()
+                resp = json.loads(text)
+                log(title='PRIVATE RESPONSE', response=resp)
+
+                if resp['status'] == 'fail':
+                    raise Exception(f"Request Failed: [{resp['message']}]")
+            except (aiohttp.ContentTypeError, json.JSONDecodeError):
+                raise Exception('Failed to decode response as JSON')
+            
+            return resp
 
     async def _get_public_headers(self) -> str:
         default_headers = copy.deepcopy(DEFAULT_HEADERS)
@@ -146,10 +187,10 @@ class ThreadsAPI:
         del modified_default_headers['X-FB-LSD']
         url = 'https://www.instagram.com/instagram'
         async with aiohttp.ClientSession() as session:
-            self.log_request('GET', url, modified_default_headers)
+            #self.log_request('GET', url, modified_default_headers)
             async with session.get(url, headers=modified_default_headers) as response:
                 data = await response.text()
-                self.log_response(url, data)
+                #self.log_response(url, data)
                 token_key_value = re.search('LSD",\\[\\],{"token":"(.*?)"},\\d+\\]', data).group()
                 token_key_value = token_key_value.replace('LSD",[],{"token":"', '')
                 token = token_key_value.split('"')[0]
@@ -195,6 +236,7 @@ class ThreadsAPI:
             self.is_logged_in = True
             self.user_id = await self.get_user_id_from_username(username)
             self.logger.info("Set logged-in state successfully. All set!")
+            self._auth_session = aiohttp.ClientSession()
             return
         
         if username is None or password is None:
@@ -216,6 +258,8 @@ class ThreadsAPI:
         try:
             
             self.logger.info("Attempting to login")
+            if self.instagrapi_client is None:
+                self.instagrapi_client = Client()
             self.instagrapi_client.login(username, password)
             token = self.instagrapi_client.private.headers['Authorization'].split("Bearer IGT:2:")[1]
             
@@ -228,6 +272,16 @@ class ThreadsAPI:
             raise
 
         return True
+
+    async def close_gracefully(self):
+        if self._auth_session is not None:
+            await self._auth_session.close()
+            self._auth_session = None
+        if self.instagrapi_client is not None:
+            self.instagrapi_client = None
+        self.user_id = None
+        self.is_logged_in = False
+        self.token = None
 
     async def __auth_required_post_request(self, url: str):
         async with aiohttp.ClientSession() as session:
@@ -289,10 +343,10 @@ class ThreadsAPI:
             headers = await self._get_public_headers()
 
             async with aiohttp.ClientSession() as session:
-                self.log_request('GET', url, headers)
+                #self.log_request('GET', url, headers)
                 async with session.get(url, headers=headers) as response:
                     text = await response.text()
-                    self.log_response(url, text)
+                    #self.log_response(url, text)
 
             text = text.replace('\\s', "").replace('\\n', "")
             user_id = re.search(r'"props":{"user_id":"(\d+)"},', text)
@@ -345,7 +399,7 @@ class ThreadsAPI:
         user = data['data']['userData']['user']
         return user
 
-    async def get_user_threads(self, user_id: str):
+    async def get_user_threads(self, user_id: str, count=10, max_id=None):
         """
         Retrieves the threads associated with a user with the provided user ID.
 
@@ -358,43 +412,53 @@ class ThreadsAPI:
         Raises:
             Exception: If an error occurs during the thread retrieval process.
         """
-        url = 'https://www.threads.net/api/graphql'
-        
-        modified_headers = copy.deepcopy(await self._get_public_headers())
+        if self.is_logged_in:
+            if max_id is not None:
+                params = {'count': count, 'max_id':max_id}
+            else:
+                params = {'count': count}
+            resp = await self._private_get(url=f'{BASE_URL}/text_feed/{user_id}/profile/', headers=self.auth_headers,data=params)
 
-        modified_headers.update({
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'x-fb-friendly-name': 'BarcelonaProfileThreadsTabQuery',
-            'x-fb-lsd': self.FBLSDToken,
-        })
-        
-        payload = {
-                'lsd': self.FBLSDToken,
-                'variables': json.dumps(
-                    {
-                        'userID': user_id,
-                    }
-                ),
-                'doc_id': '6232751443445612'
-            }
-        
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, modified_headers, payload)
-            async with session.post(url, headers=modified_headers, data=payload) as response:
-                try:
-                    text = await response.text()
-                    data = json.loads(text)
-                    self.log_response(url, data)
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    raise Exception('Failed to decode response as JSON')
+            return resp
+        # Public API for getting user threads is minimal. 'count' and 'max_id' are not used.
+        else:
+            url = 'https://www.threads.net/api/graphql'
+            
+            modified_headers = copy.deepcopy(await self._get_public_headers())
 
-        threads = data['data']['mediaData']['threads']
-        return threads
+            modified_headers.update({
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'same-origin',
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+                'x-fb-friendly-name': 'BarcelonaProfileThreadsTabQuery',
+                'x-fb-lsd': self.FBLSDToken,
+            })
+            
+            payload = {
+                    'lsd': self.FBLSDToken,
+                    'variables': json.dumps(
+                        {
+                            'userID': user_id,
+                        }
+                    ),
+                    'doc_id': '6232751443445612'
+                }
+            
+            async with aiohttp.ClientSession() as session:
+                self.log_request('POST', url, modified_headers, payload)
+                async with session.post(url, headers=modified_headers, data=payload) as response:
+                    try:
+                        text = await response.text()
+                        data = json.loads(text)
+                        self.log_response(url, data)
+                    except (aiohttp.ContentTypeError, json.JSONDecodeError):
+                        raise Exception('Failed to decode response as JSON')
+
+            threads = data['data']['mediaData']['threads']
+            return threads
     
-    async def get_user_replies(self, user_id: str):
+    async def get_user_replies(self, user_id: str, count=10, max_id=None):
         """
         Retrieves the replies associated with a user with the provided user ID.
 
@@ -407,41 +471,51 @@ class ThreadsAPI:
         Raises:
             Exception: If an error occurs during the thread retrieval process.
         """
-        url = 'https://www.threads.net/api/graphql'
+        if self.is_logged_in:
+            if max_id is not None:
+                params = {'count': count, 'max_id':max_id}
+            else:
+                params = {'count': count}
+            resp = await self._private_get(url=f'{BASE_URL}/text_feed/{user_id}/profile/replies', headers=self.auth_headers,data=params)
 
-        modified_headers = copy.deepcopy(await self._get_public_headers())
+            return resp
+        # Public API for getting user threads is minimal. 'count' and 'max_id' are not used.
+        else:
+            url = 'https://www.threads.net/api/graphql'
 
-        modified_headers.update({
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'x-fb-friendly-name': 'BarcelonaProfileRepliesTabQuery',
-            'x-fb-lsd': self.FBLSDToken,
-        })
-        
-        payload = {
-                'lsd': self.FBLSDToken,
-                'variables': json.dumps(
-                    {
-                        'userID': user_id,
-                    }
-                ),
-                'doc_id': '6307072669391286'
-            }
+            modified_headers = copy.deepcopy(await self._get_public_headers())
 
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, modified_headers, payload)
-            async with session.post(url, headers=modified_headers, data=payload) as response:
-                try:
-                    text = await response.text()
-                    data = json.loads(text)
-                    self.log_response(url, data)
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    raise Exception('Failed to decode response as JSON')
+            modified_headers.update({
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'same-origin',
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+                'x-fb-friendly-name': 'BarcelonaProfileRepliesTabQuery',
+                'x-fb-lsd': self.FBLSDToken,
+            })
+            
+            payload = {
+                    'lsd': self.FBLSDToken,
+                    'variables': json.dumps(
+                        {
+                            'userID': user_id,
+                        }
+                    ),
+                    'doc_id': '6307072669391286'
+                }
 
-        threads = data['data']['mediaData']['threads']
-        return threads
+            async with aiohttp.ClientSession() as session:
+                self.log_request('POST', url, modified_headers, payload)
+                async with session.post(url, headers=modified_headers, data=payload) as response:
+                    try:
+                        text = await response.text()
+                        data = json.loads(text)
+                        self.log_response(url, data)
+                    except (aiohttp.ContentTypeError, json.JSONDecodeError):
+                        raise Exception('Failed to decode response as JSON')
+
+            threads = data['data']['mediaData']['threads']
+            return threads
 
     async def get_user_followers(self, user_id: str) -> bool:
         if not self.is_logged_in:
@@ -457,6 +531,7 @@ class ThreadsAPI:
         res = await self.__auth_required_get_request(f"{BASE_URL}/friendships/{user_id}/following")
         return res
 
+    @require_login
     async def follow_user(self, user_id: str) -> bool:
         """
         Follows a user with the given user ID.
@@ -469,13 +544,11 @@ class ThreadsAPI:
 
         Raises:
             Exception: If an error occurs during the follow process.
-        """
-        if not self.is_logged_in:
-            raise Exception("The action 'follow_user' can only be perfomed while logged-in")
-        
-        res = await self.__auth_required_post_request(f"{BASE_URL}/friendships/create/{user_id}/")
+        """        
+        res = await self._private_post(url=f"{BASE_URL}/friendships/create/{user_id}/", headers=self.auth_headers)
         return res["status"] == "ok"
 
+    @require_login
     async def unfollow_user(self, user_id: str) -> bool:
         """
         Unfollows a user with the given user ID.
@@ -488,13 +561,11 @@ class ThreadsAPI:
 
         Raises:
             Exception: If an error occurs during the unfollow process.
-        """
-        if not self.is_logged_in:
-            raise Exception("The action 'unfollow_user' can only be perfomed while logged-in")
-        
-        res = await self.__auth_required_post_request(f"{BASE_URL}/friendships/destroy/{user_id}/")
+        """        
+        res = await self._private_post(url=f"{BASE_URL}/friendships/destroy/{user_id}/", headers=self.auth_headers)
         return res["status"] == "ok"
 
+    @require_login
     async def like_post(self, post_id: str) -> bool:
         """
         Likes a post with the given ID.
@@ -507,13 +578,11 @@ class ThreadsAPI:
 
         Raises:
             Exception: If an error occurs during the like process.
-        """
-        if not self.is_logged_in:
-            raise Exception("The action 'like_post' can only be perfomed while logged-in")
-        
-        res = await self.__auth_required_post_request(f"{BASE_URL}/media/{post_id}_{self.user_id}/like/")
+        """        
+        res = await self._private_post(url=f"{BASE_URL}/media/{post_id}_{self.user_id}/like/", headers=self.auth_headers)
         return res["status"] == "ok"
     
+    @require_login
     async def unlike_post(self, post_id: str) -> bool:
         """
         Unlikes a post with the given ID.
@@ -527,12 +596,10 @@ class ThreadsAPI:
         Raises:
             Exception: If an error occurs during the like process.
         """
-        if not self.is_logged_in:
-            raise Exception("The action 'unlike_post' can only be perfomed while logged-in")
-        
-        res = await self.__auth_required_post_request(f"{BASE_URL}/media/{post_id}_{self.user_id}/unlike/")
+        res = await self._private_post(url=f"{BASE_URL}/media/{post_id}_{self.user_id}/unlike/", headers=self.auth_headers)
         return res["status"] == "ok"
     
+    @require_login
     async def delete_post(self, post_id: str) -> bool:
         """
         Deletes a post with the given ID.
@@ -546,10 +613,7 @@ class ThreadsAPI:
         Raises:
             Exception: If an error occurs during the deletion process.
         """
-        if not self.is_logged_in:
-            raise Exception("The action 'delete_post' can only be perfomed while logged-in")
-        
-        res = await self.__auth_required_post_request(f"{BASE_URL}/media/{post_id}_{self.user_id}/delete/?media_type=TEXT_POST")
+        res = await self._private_post(url=f"{BASE_URL}/media/{post_id}_{self.user_id}/delete/?media_type=TEXT_POST", headers=self.auth_headers)
         return res["status"] == "ok"
     
     async def get_post_id_from_url(self, post_url):
@@ -673,6 +737,7 @@ class ThreadsAPI:
 
         return data['data']['likers']['users']
 
+    @require_login
     async def get_timeline(self, maxID=None):
         """
         Get timeline for the authenticated user
@@ -686,9 +751,6 @@ class ThreadsAPI:
         Raises:
             Exception: If an error occurs during the timeline retrieval process.
         """
-        if not self.is_logged_in:
-            raise Exception("The action 'get_timeline' can only be perfomed while logged-in")
-
         # Check if you have the ID of the next batch to fetch
         if maxID is None:
             parameters = {
@@ -697,26 +759,13 @@ class ThreadsAPI:
         else:
             parameters = {
                     'pagination_source': 'text_post_feed_threads',
-                    'maxID': maxID
+                    'max_id': maxID
             }
 
-        encoded_parameters = urllib.parse.urlencode(parameters)
+        res = await self._private_post(url=f'{BASE_URL}/feed/text_post_app_timeline/', headers=self.auth_headers,data=parameters)
+        return res
 
-        url = f'{BASE_URL}/feed/text_post_app_timeline/?{encoded_parameters}'
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, self.auth_headers)
-            async with session.post(url, 
-                                    headers=self.auth_headers) as response:
-                try:
-                    text = await response.text()
-                    data = json.loads(text)
-                    self.log_response(url, data)
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    raise Exception('Failed to decode response as JSON')
-        
-        return data
-
-
+    @require_login
     async def mute_user(self, user_id):
         """
         Mute a user
@@ -740,21 +789,10 @@ class ThreadsAPI:
         encoded_parameters = urllib.parse.quote(string=parameters, safe="!~*'()")
         payload = f'signed_body=SIGNATURE.{encoded_parameters}'
 
-        url = f'{BASE_URL}/friendships/mute_posts_or_story_from_follow/'
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, self.auth_headers, payload)
-            async with session.post(url, 
-                                    headers=self.auth_headers, 
-                                    data=payload) as response:
-                try:
-                    text = await response.text()
-                    data = json.loads(text)
-                    self.log_response(url, data)
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    raise Exception('Failed to decode response as JSON')
-        
-        return data
+        res = await self._private_post(url=f'{BASE_URL}/friendships/mute_posts_or_story_from_follow/', headers=self.auth_headers, data=payload)
+        return res
 
+    @require_login
     async def unmute_user(self, user_id):
         """
         Unmute a user
@@ -778,22 +816,10 @@ class ThreadsAPI:
         encoded_parameters = urllib.parse.quote(string=parameters, safe="!~*'()")
         payload = f'signed_body=SIGNATURE.{encoded_parameters}'
 
-        url = f'{BASE_URL}/friendships/unmute_posts_or_story_from_follow/'
-
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, self.auth_headers, payload)
-            async with session.post(url, 
-                                    headers=self.auth_headers, 
-                                    data=payload) as response:
-                try:
-                    text = await response.text()
-                    data = json.loads(text)
-                    self.log_response(url, data)
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    raise Exception('Failed to decode response as JSON')
-        
-        return data
+        res = await self._private_post(url=f'{BASE_URL}/friendships/unmute_posts_or_story_from_follow/', headers=self.auth_headers, data=payload)
+        return res
     
+    @require_login
     async def restrict_user(self, user_id):
         """
         Restrict a user
@@ -817,21 +843,10 @@ class ThreadsAPI:
         encoded_parameters = urllib.parse.quote(string=parameters, safe="!~*'()")
         payload = f'signed_body=SIGNATURE.{encoded_parameters}'
 
-        url = f'{BASE_URL}/restrict_action/restrict_many/'
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, self.auth_headers, payload)
-            async with session.post(url, 
-                                    headers=self.auth_headers, 
-                                    data=payload) as response:
-                try:
-                    text = await response.text()
-                    data = json.loads(text)
-                    self.log_response(url, data)
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    raise Exception('Failed to decode response as JSON')
-        
-        return data
+        res = await self._private_post(url=f'{BASE_URL}/restrict_action/restrict_many/', headers=self.auth_headers, data=payload)
+        return res
     
+    @require_login
     async def unrestrict_user(self, user_id):
         """
         Unrestrict a user
@@ -854,22 +869,10 @@ class ThreadsAPI:
 
         encoded_parameters = urllib.parse.quote(string=parameters, safe="!~*'()")
         payload = f'signed_body=SIGNATURE.{encoded_parameters}'
-        url = f'{BASE_URL}/restrict_action/unrestrict/'
-        
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, self.auth_headers, payload)
-            async with session.post(url, 
-                                    headers=self.auth_headers, 
-                                    data=payload) as response:
-                try:
-                    text = await response.text()
-                    data = json.loads(text)
-                    self.log_response(url, data)
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    raise Exception('Failed to decode response as JSON')
-        
-        return data
+        res = await self._private_post(url=f'{BASE_URL}/restrict_action/unrestrict/', headers=self.auth_headers, data=payload)
+        return res
     
+    @require_login
     async def block_user(self, user_id):
         """
         Block a user
@@ -893,22 +896,10 @@ class ThreadsAPI:
 
         encoded_parameters = urllib.parse.quote(string=parameters, safe="!~*'()")
         payload = f'signed_body=SIGNATURE.{encoded_parameters}'
-        url = f'{BASE_URL}/friendships/block/{user_id}/'
-
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, self.auth_headers, payload)
-            async with session.post(url, 
-                                    headers=self.auth_headers, 
-                                    data=payload) as response:
-                try:
-                    text = await response.text()
-                    data = json.loads(text)
-                    self.log_response(url, data)
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    raise Exception('Failed to decode response as JSON')
-        
-        return data
+        res = await self._private_post(url=f'{BASE_URL}/friendships/block/{user_id}/', headers=self.auth_headers, data=payload)
+        return res
     
+    @require_login
     async def unblock_user(self, user_id):
         """
         Unblock a user
@@ -931,22 +922,10 @@ class ThreadsAPI:
 
         encoded_parameters = urllib.parse.quote(string=parameters, safe="!~*'()")
         payload = f'signed_body=SIGNATURE.{encoded_parameters}'
-        url = f'{BASE_URL}/friendships/unblock/{user_id}/'
-
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, self.auth_headers, payload)
-            async with session.post(url, 
-                                    headers=self.auth_headers, 
-                                    data=payload) as response:
-                try:
-                    text = await response.text()
-                    data = json.loads(text)
-                    self.log_response(url, data)
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    raise Exception('Failed to decode response as JSON')
-        
-        return data
+        res = await self._private_post(url=f'{BASE_URL}/friendships/unblock/{user_id}/', headers=self.auth_headers, data=payload)
+        return res
     
+    @require_login
     async def post(
         self, caption: str, image_path: str = None, url: str = None, parent_post_id: str = None
     ) -> bool:
@@ -982,19 +961,17 @@ class ThreadsAPI:
             )
             if re.match(url_pattern, url) is not None:
                 try:
-                    async with aiohttp.ClientSession() as session:
-                        async with session.head(url) as response:
-                            return response.status == 200
+                    async with self._auth_session.head(url) as response:
+                        return response.status == 200
                 except aiohttp.ClientError:
                     return False
             return False
 
         async def __download(url: str) -> bytes:
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url) as response:
-                        response.raise_for_status()
-                        return await response.read()
+                async with self._auth_session.get(url) as response:
+                    response.raise_for_status()
+                    return await response.read()
             except aiohttp.ClientError as e:
                 raise Exception("[ERROR] failed to load file: ", e)
 
@@ -1011,14 +988,13 @@ class ThreadsAPI:
                 mime_type, _ = mimetypes.guess_type(image_url)
             else:
                 content = image_content
-                async with aiohttp.ClientSession() as session:
-                    async with session.head(image_url) as response:
-                        content_type = response.headers.get("Content-Type")
-                        if not content_type:
-                            file_name = url.split("/")[-1]
-                            mime_type, _ = mimetypes.guess_type(file_name)
-                        if mime_type is None:
-                            mime_type = "jpeg"
+                async with self._auth_session.head(image_url) as response:
+                    content_type = response.headers.get("Content-Type")
+                    if not content_type:
+                        file_name = url.split("/")[-1]
+                        mime_type, _ = mimetypes.guess_type(file_name)
+                    if mime_type is None:
+                        mime_type = "jpeg"
 
             x_instagram_rupload_params = {
                 "upload_id": f"{upload_id}",
@@ -1051,15 +1027,14 @@ class ThreadsAPI:
             }
 
             headers.update(image_headers)
-            async with aiohttp.ClientSession() as session:
-                self.log_request('POST', url, headers, content)
-                async with session.post(url, headers=headers, data=content) as response:
-                    if response.status == 200:
-                        resp = await response.json()
-                        self.log_response(url, resp)
-                        return resp
-                    else:
-                        raise Exception("Failed to upload image")
+            self.log_request('POST', url, headers, content)
+            async with self._auth_session.post(url, headers=headers, data=content) as response:
+                if response.status == 200:
+                    resp = await response.json()
+                    self.log_response(url, resp)
+                    return resp
+                else:
+                    raise Exception("Failed to upload image")
 
         if not self.is_logged_in:
             raise Exception("You need to login before posting")
@@ -1108,17 +1083,13 @@ class ThreadsAPI:
         headers = __get_app_headers().copy()
 
         try:
-            async with aiohttp.ClientSession() as session:
-                self.log_request('POST', post_url, headers, payload)
-                async with session.post(post_url, headers=headers, data=payload) as response:
-                    data = await response.json()
-                    self.log_response(url, data)
+            res = await self._private_post(url=post_url, headers=headers,data=payload)
 
-                    if 'media' in data and 'pk' in data['media']:
-                        # Return the newly created post_id
-                        return data['media']['pk']
-                    else:
-                        raise Exception("Failed to post. Got response:\n" + str(response))
+            if 'media' in res and 'pk' in res['media']:
+                # Return the newly created post_id
+                return res['media']['pk']
+            else:
+                raise Exception("Failed to post. Got response:\n" + str(res))
         except Exception as e:
             print("[ERROR] ", e)
             raise

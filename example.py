@@ -163,6 +163,8 @@ async def follow_user():
         print(f"Successfully followed {username_to_follow}")
     else:
         print(f"Unable to follow {username_to_follow}.")
+    
+    await api.close_gracefully()
 
 # Asynchronously unfollows a user
 async def unfollow_user():
@@ -180,21 +182,31 @@ async def unfollow_user():
     if result:
         print(f"Successfully unfollowed {username_to_follow}")
     else:
-        print(f"Unable to unfollow {username_to_follow}.")        
+        print(f"Unable to unfollow {username_to_follow}.")
+    
+    await api.close_gracefully()
 
 # Code example of logging in while storing token encrypted on the file-system
 async def login_with_cache():
 
-    api = ThreadsAPI()
+    local_cache_path = ".token"
+
+    api1 = ThreadsAPI()
     
     # Will login via REST to the Instagram API
-    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    is_success = await api1.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=local_cache_path)
     print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    await api1.close_gracefully()
+
+    api2 = ThreadsAPI()
 
     # Decrypts the token from the .token file using the password as the key.
     # This reduces the number of login API calls, to the bare minimum
-    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    is_success = await api2.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=local_cache_path)
     print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    await api2.close_gracefully()
 
 async def get_user_followers():
     api = ThreadsAPI()
@@ -213,6 +225,8 @@ async def get_user_followers():
         for user in data['users'][0:number_of_likes_to_display]:
             print(f"Username: {user['username']}")
 
+    await api.close_gracefully()
+
 async def get_user_following():
     api = ThreadsAPI()
 
@@ -229,6 +243,8 @@ async def get_user_following():
         
         for user in data['users'][0:number_of_likes_to_display]:
             print(f"Username: {user['username']}")
+    
+    await api.close_gracefully()
 
 # Asynchronously likes a post
 async def like_post():
@@ -246,6 +262,8 @@ async def like_post():
         
         print(f"Like status: {'Success' if result else 'Failed'}")
 
+    await api.close_gracefully()
+
 # Asynchronously unlikes a post
 async def unlike_post():
     api = ThreadsAPI()
@@ -262,6 +280,8 @@ async def unlike_post():
         
         print(f"Unlike status: {'Success' if result else 'Failed'}")
 
+    await api.close_gracefully()
+
 # Asynchronously creates then deletes the same post
 async def create_and_delete_post():
     api = ThreadsAPI()
@@ -276,6 +296,8 @@ async def create_and_delete_post():
 
         print(f"Created and deleted post {post_id} successfully")
 
+    await api.close_gracefully()
+
 # Asynchronously creates then deletes the same post
 async def post_and_reply_to_post():
     api = ThreadsAPI()
@@ -289,6 +311,8 @@ async def post_and_reply_to_post():
         second_post_id = await api.post("Hello World to you too!", parent_post_id=first_post_id)
 
         print(f"Created parent post {first_post_id} and replied to it with post {second_post_id} successfully")
+
+    await api.close_gracefully()
 
 async def block_and_unblock_user():
     api = ThreadsAPI()
@@ -308,43 +332,92 @@ async def block_and_unblock_user():
 
         print(f"Blocking status: {'Blocked' if resp['friendship_status']['blocking'] else 'Unblocked'}")
 
-    return
+    await api.close_gracefully()
 
-async def restrict_and_unrestrict_user():
-    return
-
-async def mute_and_unmute_user():
     return
 
 async def get_timeline():
     api = ThreadsAPI()
+
+    def _print_post(post):
+        caption = post['thread_items'][0]['post']['caption']
+
+        if caption == None:
+            caption = "<Unable to print non-textual posts>"
+        else:
+            caption = caption['text']
+        print(f"Post -> Caption: [{caption}]\n")
+
+    async def _print_posts_in_feed(next_max_id=None, posts_to_go=0):
+        if posts_to_go > 0:
+            if next_max_id is not None:
+                resp = await api.get_timeline(next_max_id)
+            else:
+                resp = await api.get_timeline()
+
+            for post in resp['items'][:resp['num_results']]:
+                _print_post(post)
+
+            posts_to_go -= resp['num_results']
+            await _print_posts_in_feed(resp['next_max_id'], posts_to_go)
+
 
     # Will login via REST to the Instagram API
     is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
     print(f"Login status: {'Success' if is_success else 'Failed'}")
 
     if is_success:
-        resp = await api.get_timeline()
-
-        print(f"Number of results fetched: {resp['num_results']}\n")
-
-        post_index = 1
-        for post in resp['items'][:resp['num_results']]:
-            print(f"Item [{post_index}] -> Caption: [{post['thread_items'][0]['post']['caption']['text']}]\n")
-            post_index += 1
-
-        # see if you can load more items from the timeline
-        if 'more_available' in resp:
-            next_max_id = resp['next_max_id']
-            resp = await api.get_timeline(next_max_id)
-
-            for post in resp['items'][:resp['num_results']]:
-                print(f"Item [{post_index}] -> Caption: [{post['thread_items'][0]['post']['caption']['text']}]\n")
-                post_index += 1
-
+        await _print_posts_in_feed(posts_to_go=20)
+        
+    await api.close_gracefully()
 
     return
 
+# Asynchronously gets the threads for a user
+async def get_user_threads_while_authenticated():
+    api = ThreadsAPI()
+
+    username = "zuck"
+    user_id = await api.get_user_id_from_username(username)
+
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        if user_id:
+            resp = await api.get_user_threads(user_id)
+            print(f"The threads for user '{username}' are:")
+            for thread in resp['threads']:
+                print(f"{username}'s Post: {thread['thread_items'][0]['post']['caption']['text']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
+        else:
+            print(f"User ID not found for username '{username}'")
+
+    await api.close_gracefully()
+
+# Asynchronously gets the replies for a user
+async def get_user_replies_while_authenticated():
+    api = ThreadsAPI()
+
+    username = "zuck"
+    user_id = await api.get_user_id_from_username(username)
+
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        if user_id:
+            threads = await api.get_user_replies(user_id)
+            print(f"The replies for user '{username}' are:")
+            for thread in threads['threads']:
+                print(f"-\n{thread['thread_items'][0]['post']['user']['username']}'s Post: {thread['thread_items'][0]['post']['caption']['text']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
+
+                print(f"{username}'s Reply: {thread['thread_items'][1]['post']['caption']['text']} || Likes: {thread['thread_items'][1]['post']['like_count']}\n-")
+    else:
+        print(f"User ID not found for username '{username}'")
+    
+    await api.close_gracefully()
 '''
  Remove the # to run an individual example function wrapper.
 
@@ -375,3 +448,5 @@ async def get_timeline():
 #asyncio.run(post_and_reply_to_post()) # Post and then reply to the same post
 #asyncio.run(block_and_unblock_user()) # Blocks and unblocks a user 
 #asyncio.run(get_timeline()) # Display items from the timeline
+#asyncio.run(get_user_threads_while_authenticated()) # Retrieves the replies made by a user.
+#asyncio.run(get_user_replies_while_authenticated()) # Retrieves the profile information of a user.
