@@ -2,6 +2,9 @@ from threads_api.src.threads_api import ThreadsAPI
 import asyncio
 import os
 import logging
+from threads_api.src.http_sessions.instagrapi_session import InstagrapiSession
+from threads_api.src.http_sessions.requests_session import RequestsSession
+from threads_api.src.http_sessions.aiohttp_session import AioHTTPSession
 
 # Asynchronously gets the user ID from a username
 async def get_user_id_from_username():
@@ -373,6 +376,41 @@ async def get_timeline():
 
     return
 
+async def get_timeline_with_api(api=ThreadsAPI()):
+    def _print_post(post):
+        caption = post['thread_items'][0]['post']['caption']
+
+        if caption == None:
+            caption = "<Unable to print non-textual posts>"
+        else:
+            caption = caption['text']
+        print(f"Post -> Caption: [{caption}]\n")
+
+    async def _print_posts_in_feed(next_max_id=None, posts_to_go=0):
+        if posts_to_go > 0:
+            if next_max_id is not None:
+                resp = await api.get_timeline(next_max_id)
+            else:
+                resp = await api.get_timeline()
+
+            for post in resp['items'][:resp['num_results']]:
+                _print_post(post)
+
+            posts_to_go -= resp['num_results']
+            await _print_posts_in_feed(resp['next_max_id'], posts_to_go)
+
+
+    # Will login via REST to the Instagram API
+    is_success = await api.login(username=os.environ.get('USERNAME'), password=os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    if is_success:
+        await _print_posts_in_feed(posts_to_go=20)
+        
+    await api.close_gracefully()
+
+    return
+
 # Asynchronously gets the threads for a user
 async def get_user_threads_while_authenticated():
     api = ThreadsAPI()
@@ -450,3 +488,7 @@ async def get_user_replies_while_authenticated():
 #asyncio.run(get_timeline()) # Display items from the timeline
 #asyncio.run(get_user_threads_while_authenticated()) # Retrieves the replies made by a user.
 #asyncio.run(get_user_replies_while_authenticated()) # Retrieves the profile information of a user.
+
+#asyncio.run(get_timeline_with_api(ThreadsAPI(http_session_class=AioHTTPSession))) # Use aiohttp session under the hood
+#asyncio.run(get_timeline_with_api(ThreadsAPI(http_session_class=RequestsSession))) # Use requests session under the hood
+#asyncio.run(get_timeline_with_api(ThreadsAPI(http_session_class=InstagrapiSession))) # Use instagrapi session under the hood

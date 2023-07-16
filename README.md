@@ -12,9 +12,17 @@ Inspired by [NPM Threads-API](https://github.com/junhoyeo/threads-api)
 
 Threads API is an unofficial Python client for Meta's Threads API. It allows you to interact with the API to login, read and publish posts, view who liked a post, retrieve user profile information, follow/unfollow and much more.
 
-It is built using `aiohttp` to ease asynchronous execution of the API, for ⚡ super-fast ⚡ results.
+It allows you to configure the session object. Choose between:
+* `aiohttp` - Python library to ease asynchronous execution of the API, for ⚡ super-fast ⚡ results. (*default*)
+* `requests` - Python library for standard ease of use (supports `HTTP_PROXY` env var functionality)
+* `instagrapi` - utilize the same connection all the way for private api
+* (Advanced) Implement your own and call ThreadsAPI like this: `ThreadsAPI(http_class=YourOwnHTTPSessionImpl)`
 
-> Note: Since v1.1.3 we are using ```instagrapi``` package to login.
+> **Note** Since v1.1.3 we are using ```instagrapi``` package to login.
+
+> **Note** Since v1.1.10 you can use `requests` or `instagrapi` as HTTP clients, not just `aiohttp`.
+
+> **Important Tip** Use the same `cached_token_path` for connections, to reduce the number of actual login attempts. When needed, threads-api will reconnect and update the file in `cached_token_path`.  
 
 Table of content:
 
@@ -22,6 +30,7 @@ Table of content:
 * [Getting started](#getting-started)
   * [Installation](#installation)
   * [Set Log Level](#set-desired-log-level)
+  * [Set HTTP Client](#choose-a-different-http-client)
 * [Contributions](#contributing-to-danie1threads-api)
 * [Supported Features](#supported-features)
 * [Usage Examples](#usage-examples)
@@ -69,6 +78,19 @@ async def main():
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
 ```
+
+## Customize HTTP Client
+Each HTTP client brings to the table different functionality. Use whichever you like, or implement your own wrapper.
+
+Usage:
+``` python
+api = ThreadsAPI(http_session_class=AioHTTPSession) # default
+# or
+api = ThreadsAPI(http_session_class=RequestsSession)
+# or
+api = ThreadsAPI(http_session_class=InstagrapiSession)
+```
+
 ## Set Desired Log Level
 Threads-API reads the environment variable ```LOG_LEVEL``` and sets the log-level according to its value.
 
