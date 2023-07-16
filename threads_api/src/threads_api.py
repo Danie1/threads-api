@@ -18,6 +18,7 @@ import copy
 
 import secrets
 from base64 import urlsafe_b64encode as b64e, urlsafe_b64decode as b64d
+from getpass import getpass
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
@@ -106,7 +107,16 @@ def require_login(func):
     return wrapper
 
 class ThreadsAPI:
-    def __init__(self):
+    """
+    A class to interact with Threads.net API and perform actions like login and posting.
+
+    Args:
+        username (str, optional): The Instagram username for authentication. Defaults to None.
+        password (str, optional): The Instagram password for authentication. Defaults to None.
+        cached_token_path (str, optional): The path to the cached token file. Defaults to None.
+    """
+            
+    def __init__(self, username: str = None, password: str = None, cached_token_path=None):
         
         # Get the log level from the environment variable
         log_level_env = os.environ.get("LOG_LEVEL", "WARNING")
@@ -121,6 +131,10 @@ class ThreadsAPI:
         self.set_log_level(self.log_level)
 
         self.logger = logging.getLogger()
+
+        self.username = username
+        self.password = password
+        self.cached_token_path = cached_token_path
         
         self._auth_session = None
 
@@ -198,19 +212,21 @@ class ThreadsAPI:
         self.FBLSDToken = token
         return self.FBLSDToken
     
-    async def login(self, username, password, cached_token_path=None):
+    async def login(self, username: str = None, password: str = None, cached_token_path=None):
         """
         Logs in the user with the provided username and password.
 
         Args:
-            username (str): The username for authentication.
-            password (str): The password for authentication.
+            username (str, optional): The Instagram username for authentication. If not provided, it will be prompted.
+            password (str, optional): The Instagram password for authentication. If not provided, it will be prompted.
+            cached_token_path (str, optional): The path to the cached token file. If not provided,
+                                                not using cache.
 
         Returns:
             bool: True if the login is successful, False otherwise.
 
         Raises:
-            Exception: If the username or password are invalid, or if an error occurs during login.
+            Exception: If the username or password are invalid or if an error occurs during login.
         """
         def _save_token_to_cache(cached_token_path, token, password):
             with open(cached_token_path, "wb") as fd:
@@ -239,10 +255,22 @@ class ThreadsAPI:
             self._auth_session = aiohttp.ClientSession()
             return
         
-        if username is None or password is None:
-            raise Exception("Username or password are invalid")
+        username = username or self.username
+        password = password or self.password
 
+        if not username:
+            username = input("Please enter your Instagram username: ")
+        if not password:
+            password = getpass("Please enter your Instagram password: ")
+                    
+        if not (username and password):
+            raise Exception("No username or password provided.")
+                    
         self.username = username
+        self.password = password
+
+        cached_token_path = cached_token_path or self.cached_token_path
+        self.cached_token_path = cached_token_path
 
         # Look in cache before logging in.
         if cached_token_path is not None and os.path.exists(cached_token_path):
@@ -272,6 +300,8 @@ class ThreadsAPI:
             raise
 
         return True
+
+    start = login
 
     async def close_gracefully(self):
         if self._auth_session is not None:
