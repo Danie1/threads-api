@@ -31,6 +31,10 @@ import sys
 from threads_api.src.anotherlogger import log
 from colorama import init, Fore, Style
 import functools
+from threads_api.src.settings import Settings
+import requests
+
+from threads_api.src.http_sessions.aiohttp_session import AioHTTPSession
 
 BASE_URL = "https://i.instagram.com/api/v1"
 LOGIN_URL = BASE_URL + "/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/"
@@ -57,8 +61,6 @@ DEFAULT_HEADERS = {
             'X-FB-LSD': 'NjppQDEgONsU_1LCzrmp6q',
             'X-IG-App-ID': '238260118697367',
         }
-
-# This will help debugging flow failures
 
 class SimpleEncDec:
     backend = default_backend()
@@ -106,8 +108,8 @@ def require_login(func):
     return wrapper
 
 class ThreadsAPI:
-    def __init__(self):
-        
+    def __init__(self, http_session_class=AioHTTPSession):
+        self.http_session_class = http_session_class
         # Get the log level from the environment variable
         log_level_env = os.environ.get("LOG_LEVEL", "WARNING")
 
@@ -123,7 +125,7 @@ class ThreadsAPI:
         self.logger = logging.getLogger()
         
         self._auth_session = None
-
+        self._settings = Settings()
         self.token = None
         self.user_id = None
         self.is_logged_in = False
@@ -132,6 +134,12 @@ class ThreadsAPI:
         self.FBLSDToken = 'NjppQDEgONsU_1LCzrmp6q'
 
         self.instagrapi_client = None
+
+        # Log all configureable attributes for troubleshooting
+        log(message="ThreadsAPI.__init__ Configurations",
+            log_level=self.log_level,
+            http_session_class=self.http_session_class.__name__,
+            settings=self._settings.get_settings())
 
     def set_log_level(self, log_level):
         self.log_level = log_level
@@ -146,35 +154,11 @@ class ThreadsAPI:
 
     @require_login
     async def _private_post(self, **kwargs):
-        log(title='PRIVATE REQUEST', type='POST', **kwargs)
-        async with self._auth_session.post(**kwargs) as response:
-            try:
-                text = await response.text()
-                resp = json.loads(text)
-                log(title='PRIVATE RESPONSE', response=resp)
-
-                if resp['status'] == 'fail':
-                    raise Exception(f"Request Failed: [{resp['message']}]")
-            except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                raise Exception('Failed to decode response as JSON')
-            
-            return resp
+        return await self._auth_session.post(**kwargs)
 
     @require_login
     async def _private_get(self, **kwargs):
-        log(title='PRIVATE REQUEST', type='GET', **kwargs)
-        async with self._auth_session.get(**kwargs) as response:
-            try:
-                text = await response.text()
-                resp = json.loads(text)
-                log(title='PRIVATE RESPONSE', response=resp)
-
-                if resp['status'] == 'fail':
-                    raise Exception(f"Request Failed: [{resp['message']}]")
-            except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                raise Exception('Failed to decode response as JSON')
-            
-            return resp
+        return await self._auth_session.get(**kwargs)
 
     async def _get_public_headers(self) -> str:
         default_headers = copy.deepcopy(DEFAULT_HEADERS)
@@ -214,16 +198,24 @@ class ThreadsAPI:
         """
         def _save_token_to_cache(cached_token_path, token, password):
             with open(cached_token_path, "wb") as fd:
-                fd.write(SimpleEncDec.password_encrypt(token.encode(), password))
+                encrypted_token = SimpleEncDec.password_encrypt(token.encode(), password)
+                fd.write(encrypted_token)
+
+                # Sync token between original token cache and the settings file
+                self._settings.set_encrypted_token(encrypted_token)
                 self.logger.info("Saved token to cache")
             return
 
         def _get_token_from_cache(cached_token_path, password):
             with open(cached_token_path, "rb") as fd:
                 encrypted_token = fd.read()
-                self.logger.info("Loaded token from cache")
+                
+                # Sync token between original token cache and the settings file
+                self._settings.set_encrypted_token(encrypted_token)
 
-            return SimpleEncDec.password_decrypt(encrypted_token, password).decode()
+                decrypted_token = SimpleEncDec.password_decrypt(encrypted_token, password).decode()
+                self.logger.info("Loaded token from cache")
+            return decrypted_token
         
         async def _set_logged_in_state(username, token):
             self.token = token
@@ -236,7 +228,6 @@ class ThreadsAPI:
             self.is_logged_in = True
             self.user_id = await self.get_user_id_from_username(username)
             self.logger.info("Set logged-in state successfully. All set!")
-            self._auth_session = aiohttp.ClientSession()
             return
         
         if username is None or password is None:
@@ -248,19 +239,21 @@ class ThreadsAPI:
         if cached_token_path is not None and os.path.exists(cached_token_path):
             self.logger.info(f"Found cache file in {cached_token_path}, attempting to read the token from it.")
             try:
+                self._auth_session = self.http_session_class()
                 await _set_logged_in_state(username, _get_token_from_cache(cached_token_path, password))
-                
                 return True
             except LoggedOutException as e:
                 print(f"[Error] {e}. Attempting to re-login.")
                 pass
 
         try:
-            
             self.logger.info("Attempting to login")
+            self._auth_session = self.http_session_class()
+            
             if self.instagrapi_client is None:
                 self.instagrapi_client = Client()
-            self.instagrapi_client.login(username, password)
+            #self.instagrapi_client.login(username, password)
+            self._auth_session.auth(self.instagrapi_client.login, username=username, password=password)
             token = self.instagrapi_client.private.headers['Authorization'].split("Bearer IGT:2:")[1]
             
             await _set_logged_in_state(username, token)
