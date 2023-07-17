@@ -22,6 +22,8 @@ It allows you to configure the session object. Choose between:
 
 > **Note** Since v1.1.10 you can use `requests` or `instagrapi` as HTTP clients, not just `aiohttp`.
 
+> **Note** Since v1.1.12 a `.session.json` file will be created by-default to save default settings (to reduce risk of being flagged). You can disable it by passing `ThreadsAPI(settings_path=None)`
+
 > **Important Tip** Use the same `cached_token_path` for connections, to reduce the number of actual login attempts. When needed, threads-api will reconnect and update the file in `cached_token_path`.  
 
 Table of content:
@@ -62,6 +64,7 @@ load_dotenv()
 
 async def post():
     api = ThreadsAPI()
+    
     await api.login(os.environ.get('INSTAGRAM_USERNAME'), os.environ.get('INSTAGRAM_PASSWORD'), cached_token_path=".token")
     result = await api.post(caption="Posting this from the Danie1/threads-api!", image_path=".github/logo.jpg")
 
@@ -72,6 +75,7 @@ async def post():
         print("Unable to post.")
     
     await api.close_gracefully()
+    
 
 async def main():
     await post()

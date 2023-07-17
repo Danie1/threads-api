@@ -3,7 +3,7 @@ import json
 import requests
 
 from threads_api.src.http_sessions.abstract_session import HTTPSession
-from threads_api.src.threads_api import log
+from threads_api.src.anotherlogger import log_debug
 
 class InstagrapiSession(HTTPSession):
     def __init__(self):
@@ -18,13 +18,16 @@ class InstagrapiSession(HTTPSession):
         # override with Threads headers
         self._instagrapi_client.private.headers=self._threads_headers
 
-    def auth(self, auth_callback_func, **kwargs):
+    def auth(self, **kwargs):
         # restore original headers for Instagram login
         self._instagrapi_client.private.headers = self._instagrapi_headers
-        ret = self._instagrapi_client.login(**kwargs)
+        self._instagrapi_client.login(**kwargs)
+        token = self._instagrapi_client.private.headers['Authorization'].split("Bearer IGT:2:")[1]
 
         # override with Threads headers
         self._instagrapi_client.private.headers = self._threads_headers
+        
+        return token
     
     async def start(self):
         pass
@@ -33,11 +36,11 @@ class InstagrapiSession(HTTPSession):
         pass
 
     async def post(self, **kwargs):
-        log(title='PRIVATE REQUEST', type='POST', requests_session_params=vars(self._instagrapi_client.private), **kwargs)
+        log_debug(title='PRIVATE REQUEST', type='POST', requests_session_params=vars(self._instagrapi_client.private), **kwargs)
         response = self._instagrapi_client.private.post(**kwargs)
         try:
             resp = response.json()
-            log(title='PRIVATE RESPONSE', requests_session_params=vars(self._instagrapi_client.private), response=resp)
+            log_debug(title='PRIVATE RESPONSE', requests_session_params=vars(self._instagrapi_client.private), response=resp)
 
             if resp['status'] == 'fail':
                 raise Exception(f"Request Failed: [{resp['message']}]")
@@ -47,11 +50,11 @@ class InstagrapiSession(HTTPSession):
         return resp
 
     async def get(self, **kwargs):
-        log(title='PRIVATE REQUEST', type='GET', **kwargs)
+        log_debug(title='PRIVATE REQUEST', type='GET', **kwargs)
         response = self._instagrapi_client.private.get(**kwargs)
         try:
             resp = response.json()
-            log(title='PRIVATE RESPONSE', response=resp)
+            log_debug(title='PRIVATE RESPONSE', response=resp)
 
             if resp['status'] == 'fail':
                 raise Exception(f"Request Failed: [{resp['message']}]")

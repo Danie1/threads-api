@@ -9,7 +9,7 @@ def is_json_serializable(obj):
     except (TypeError, ValueError):
         return False
 
-def log(*args, **kwargs):
+def format_log(*args, **kwargs):
     log_message = f"{Fore.GREEN}<---- START ---->\n"
 
     # Collect positional arguments
@@ -27,6 +27,12 @@ def log(*args, **kwargs):
             log_message += f"  [{key}]: [{Style.RESET_ALL}{value}{Fore.GREEN}]\n"
 
     log_message += f"<---- END ---->\n{Style.RESET_ALL}"
+    return log_message
 
+def log_info(*args, **kwargs):
     # Log the message
-    logging.info(log_message)
+    logging.info(format_log(*args, **kwargs))
+
+def log_debug(*args, **kwargs):
+    # Log the message
+    logging.debug(format_log(*args, **kwargs))

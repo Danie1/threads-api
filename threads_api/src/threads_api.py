@@ -28,7 +28,7 @@ from instagrapi import Client
 
 import logging
 import sys
-from threads_api.src.anotherlogger import log
+from threads_api.src.anotherlogger import format_log
 from colorama import init, Fore, Style
 import functools
 from threads_api.src.settings import Settings
@@ -108,8 +108,8 @@ def require_login(func):
     return wrapper
 
 class ThreadsAPI:
-    def __init__(self, http_session_class=AioHTTPSession):
-        self.http_session_class = http_session_class
+    def __init__(self, http_session_class=AioHTTPSession, settings_path : str=".session.json"):
+
         # Get the log level from the environment variable
         log_level_env = os.environ.get("LOG_LEVEL", "WARNING")
 
@@ -122,10 +122,20 @@ class ThreadsAPI:
         
         self.set_log_level(self.log_level)
 
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger(name="ThreadsAPILogger")
         
+
+        # Setup settings
+        self.settings_path = settings_path
+        self.settings = Settings()
+
+        # Create settings in filesystem if provided
+        if settings_path is not None and not os.path.exists(settings_path):
+            self.settings.dump_settings(settings_path)
+
+        # Setup private connection members
+        self.http_session_class = http_session_class
         self._auth_session = None
-        self._settings = Settings()
         self.token = None
         self.user_id = None
         self.is_logged_in = False
@@ -133,13 +143,12 @@ class ThreadsAPI:
 
         self.FBLSDToken = 'NjppQDEgONsU_1LCzrmp6q'
 
-        self.instagrapi_client = None
-
         # Log all configureable attributes for troubleshooting
-        log(message="ThreadsAPI.__init__ Configurations",
+        self.logger.info(format_log(message="ThreadsAPI.__init__ Configurations",
+            settings_path=self.settings_path,
             log_level=self.log_level,
             http_session_class=self.http_session_class.__name__,
-            settings=self._settings.get_settings())
+            settings=self.settings.get_settings()))
 
     def set_log_level(self, log_level):
         self.log_level = log_level
@@ -159,6 +168,12 @@ class ThreadsAPI:
     @require_login
     async def _private_get(self, **kwargs):
         return await self._auth_session.get(**kwargs)
+
+    async def load_settings(self, path: str = None):
+        return self.settings.load_settings(path)
+    
+    async def dump_settings(self, path: str = None):
+        return self.settings.dump_settings(path)
 
     async def _get_public_headers(self) -> str:
         default_headers = copy.deepcopy(DEFAULT_HEADERS)
@@ -181,7 +196,7 @@ class ThreadsAPI:
 
         self.FBLSDToken = token
         return self.FBLSDToken
-    
+
     async def login(self, username, password, cached_token_path=None):
         """
         Logs in the user with the provided username and password.
@@ -200,21 +215,43 @@ class ThreadsAPI:
             with open(cached_token_path, "wb") as fd:
                 encrypted_token = SimpleEncDec.password_encrypt(token.encode(), password)
                 fd.write(encrypted_token)
+                self.logger.info("Saved token encrypted to cache")
 
                 # Sync token between original token cache and the settings file
-                self._settings.set_encrypted_token(encrypted_token)
-                self.logger.info("Saved token to cache")
+                self.settings.set_encrypted_token(encrypted_token.decode())
+
+                if self.settings_path is not None:
+                    self.settings.dump_settings(self.settings_path)
+                    self.logger.info("Saved token encrypted to settings file")
             return
 
         def _get_token_from_cache(cached_token_path, password):
-            with open(cached_token_path, "rb") as fd:
-                encrypted_token = fd.read()
-                
-                # Sync token between original token cache and the settings file
-                self._settings.set_encrypted_token(encrypted_token)
+            decrypted_token = None
 
-                decrypted_token = SimpleEncDec.password_decrypt(encrypted_token, password).decode()
-                self.logger.info("Loaded token from cache")
+            # Try to load the token from the settings file before looking in the original token cache
+            if self.settings_path is not None:
+                try:
+                    self.settings.load_settings(self.settings_path)
+                    
+                    if self.settings.encrypted_token is not None:
+                        decrypted_token = SimpleEncDec.password_decrypt(self.settings.encrypted_token.encode(), password).decode()
+                        self.logger.info("Loaded encrypted token from settings file")
+                except FileNotFoundError:
+                    # Use default settings if the file does not exist yet
+                    self.logger.info(f"Using default settings because no file was found in {self.settings_path}")
+                    pass
+
+            # stop using cached_token_path if encrypted_token exists in settings file
+            if decrypted_token is None:
+                with open(cached_token_path, "rb") as fd:
+                    encrypted_token = fd.read()
+                    
+                    # Sync token between original token cache and the settings file
+                    self.settings.set_encrypted_token(encrypted_token.decode())
+                    self.settings.dump_settings(self.settings_path)
+
+                    decrypted_token = SimpleEncDec.password_decrypt(encrypted_token, password).decode()
+                    self.logger.info("Loaded encrypted token from cache")
             return decrypted_token
         
         async def _set_logged_in_state(username, token):
@@ -249,12 +286,8 @@ class ThreadsAPI:
         try:
             self.logger.info("Attempting to login")
             self._auth_session = self.http_session_class()
-            
-            if self.instagrapi_client is None:
-                self.instagrapi_client = Client()
-            #self.instagrapi_client.login(username, password)
-            self._auth_session.auth(self.instagrapi_client.login, username=username, password=password)
-            token = self.instagrapi_client.private.headers['Authorization'].split("Bearer IGT:2:")[1]
+
+            token = self._auth_session.auth(username=username, password=password)
             
             await _set_logged_in_state(username, token)
                     
@@ -270,8 +303,7 @@ class ThreadsAPI:
         if self._auth_session is not None:
             await self._auth_session.close()
             self._auth_session = None
-        if self.instagrapi_client is not None:
-            self.instagrapi_client = None
+
         self.user_id = None
         self.is_logged_in = False
         self.token = None
@@ -1020,36 +1052,30 @@ class ThreadsAPI:
             }
 
             headers.update(image_headers)
-            self.log_request('POST', url, headers, content)
-            async with self._auth_session.post(url, headers=headers, data=content) as response:
-                if response.status == 200:
-                    resp = await response.json()
-                    self.log_response(url, resp)
-                    return resp
-                else:
-                    raise Exception("Failed to upload image")
+
+            response = await self._private_post(url=url, headers=headers,data=content)
+            
+            if response['status'] == 'ok':
+                return response
+            else:
+                raise Exception("Failed to upload image")
 
         if not self.is_logged_in:
             raise Exception("You need to login before posting")
         
         now = datetime.now()
-        timezone_offset = (datetime.now() - datetime.utcnow()).seconds
-
+        
         params = {
             "text_post_app_info": {"reply_control": 0},
-            "timezone_offset": "-" + str(timezone_offset),
+            "timezone_offset": str(self.settings.timezone_offset),
             "source_type": "4",
             "_uid": self.user_id,
-            "device_id": str(f"android-{random.randint(0, 1e24):x}"),
+            "device_id": self.settings.device_id,
             "caption": caption,
             "upload_id": str(int(now.timestamp() * 1000)),
-            "device": {
-                "manufacturer": "OnePlus",
-                "model": "ONEPLUS+A3010",
-                "android_version": 25,
-                "android_release": "7.1.1",
-            },
+            "device": self.settings.device_as_dict,
         }
+
         post_url = POST_URL_TEXTONLY
         if image_path is not None:
             post_url = POST_URL_IMAGE
