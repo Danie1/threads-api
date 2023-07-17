@@ -157,7 +157,8 @@ class ThreadsAPI:
             settings=self._settings.get_settings())
 
     async def __aenter__(self):
-        return await self.login()
+        await self.login()
+        return self
 
     async def __aexit__(self, *args):
         try:
@@ -219,7 +220,7 @@ class ThreadsAPI:
                                                 not using cache.
                                                 
         Returns:
-            :obj:`~ThreadsAPI`: The logged-in client itself.
+            bool: True if the login is successful, False otherwise.
 
         Raises:
             Exception: If the username or password are invalid, or if an error occurs during login.
@@ -280,7 +281,7 @@ class ThreadsAPI:
             try:
                 self._auth_session = self.http_session_class()
                 await _set_logged_in_state(username, _get_token_from_cache(cached_token_path, password))
-                return self
+                return True
             except LoggedOutException as e:
                 print(f"[Error] {e}. Attempting to re-login.")
                 pass
@@ -303,8 +304,9 @@ class ThreadsAPI:
             print("[ERROR] ", e)
             raise
 
-        return self
+        return True
 
+    # an alias for the login function.
     start = login
 
     async def close_gracefully(self):
