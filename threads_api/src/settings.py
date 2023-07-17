@@ -55,7 +55,6 @@ class Settings:
         -------
         Bool
         """
-        print(self.get_settings())
         with open(path, "w") as fp:
             fp.write(json.dumps(self.get_settings(), indent=4))
         return True
