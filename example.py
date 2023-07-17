@@ -6,6 +6,24 @@ from threads_api.src.http_sessions.instagrapi_session import InstagrapiSession
 from threads_api.src.http_sessions.requests_session import RequestsSession
 from threads_api.src.http_sessions.aiohttp_session import AioHTTPSession
 
+
+async def example():
+    api = ThreadsAPI(username="...", password="...", cached_token_path=".token")
+
+    username = "zuck"
+    
+    # async with statement starts a context manager, which is used as a shortcut for login, executing and closing.
+    async with api as client:
+        user_id = await client.get_user_id_from_username(username)
+    print(f"The user ID for username '{username}' is: {user_id}") if user_id else print(f"User ID not found for username '{username}'")
+
+    # instead of using the context manager
+    await api.login() # or await api.start()
+    user_id = await client.get_user_id_from_username(username)
+    print(f"The user ID for username '{username}' is: {user_id}") if user_id else print(f"User ID not found for username '{username}'")
+
+    await api.close_gracefully() # close http and clear.
+
 # Asynchronously gets the user ID from a username
 async def get_user_id_from_username():
     api = ThreadsAPI()
