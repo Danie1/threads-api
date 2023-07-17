@@ -70,6 +70,8 @@ async def post():
         print("Post has been successfully posted")
     else:
         print("Unable to post.")
+    
+    await api.close_gracefully()
 
 async def main():
     await post()
