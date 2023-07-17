@@ -1,4 +1,4 @@
-from typing import Any, Optional, Dict, Union, List
+from typing import Any, Callable, Optional, Dict, Union, List
 import aiohttp
 import re
 import json
@@ -107,6 +107,11 @@ def require_login(func):
             raise Exception(f"The action '{func.__name__}' can only be perfomed while logged-in")
         return await func(self, *args, **kwargs)
     return wrapper
+
+async def run_sync(func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
+
 
 class ThreadsAPI:
     def __init__(
@@ -255,10 +260,10 @@ class ThreadsAPI:
             return
         
         if not (username := username or self.username):
-            username = input("Please enter your Instagram username: ")
+            username = await run_sync(input, "Please enter your Instagram username: ")
 
         if not (password := password or self.password):
-            password = getpass("Please enter your Instagram password: ")
+            password = await run_sync(getpass, "Please enter your Instagram password: ")
 
         if not (username and password):
             raise Exception("No username or password provided.")
