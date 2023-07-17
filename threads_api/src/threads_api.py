@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Union, List
+from typing import Any, Optional, Dict, Union, List
 import aiohttp
 import re
 import json
@@ -18,6 +18,7 @@ import copy
 
 import secrets
 from base64 import urlsafe_b64encode as b64e, urlsafe_b64decode as b64d
+from getpass import getpass
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
@@ -108,8 +109,14 @@ def require_login(func):
     return wrapper
 
 class ThreadsAPI:
-    def __init__(self, http_session_class=AioHTTPSession):
-        self.http_session_class = http_session_class
+    def __init__(
+        self,
+        username: str = None,
+        password: str = None,
+        cached_token_path: Any = None,
+        http_session_class: Any = None
+    ):
+        
         # Get the log level from the environment variable
         log_level_env = os.environ.get("LOG_LEVEL", "WARNING")
 
@@ -119,11 +126,14 @@ class ThreadsAPI:
             raise ValueError(f"Invalid log level: {log_level_env}")
         
         self.log_level = log_level
-        
         self.set_log_level(self.log_level)
-
         self.logger = logging.getLogger()
-        
+
+        self.username = username
+        self.password = password
+        self.cached_token_path = cached_token_path
+        self.http_session_class = http_session_class or AioHTTPSession
+
         self._auth_session = None
         self._settings = Settings()
         self.token = None
@@ -141,6 +151,15 @@ class ThreadsAPI:
             http_session_class=self.http_session_class.__name__,
             settings=self._settings.get_settings())
 
+    async def __aenter__(self):
+        return await self.login()
+
+    async def __aexit__(self, *args):
+        try:
+            await self.close_gracefully()
+        except Exception:
+            pass
+                    
     def set_log_level(self, log_level):
         self.log_level = log_level
         logging.basicConfig(level=self.log_level, format='%(levelname)s:%(message)s')
@@ -182,20 +201,25 @@ class ThreadsAPI:
         self.FBLSDToken = token
         return self.FBLSDToken
     
-    async def login(self, username, password, cached_token_path=None):
+    async def login(
+        self, username: str = None, password: str = None, cached_token_path: Any = None
+    ):
         """
         Logs in the user with the provided username and password.
 
         Args:
-            username (str): The username for authentication.
-            password (str): The password for authentication.
-
+            username (str, optional): The Instagram username for authentication. If not provided, it will be prompted.
+            password (str, optional): The Instagram password for authentication. If not provided, it will be prompted.
+            cached_token_path (str, optional): The path to the cached token file. If not provided,
+                                                not using cache.
+                                                
         Returns:
-            bool: True if the login is successful, False otherwise.
+            :obj:`~ThreadsAPI`: The logged-in client itself.
 
         Raises:
             Exception: If the username or password are invalid, or if an error occurs during login.
         """
+                
         def _save_token_to_cache(cached_token_path, token, password):
             with open(cached_token_path, "wb") as fd:
                 encrypted_token = SimpleEncDec.password_encrypt(token.encode(), password)
@@ -230,18 +254,28 @@ class ThreadsAPI:
             self.logger.info("Set logged-in state successfully. All set!")
             return
         
-        if username is None or password is None:
-            raise Exception("Username or password are invalid")
+        if not (username := username or self.username):
+            username = input("Please enter your Instagram username: ")
+
+        if not (password := password or self.password):
+            password = getpass("Please enter your Instagram password: ")
+
+        if not (username and password):
+            raise Exception("No username or password provided.")
 
         self.username = username
+        self.password = password
 
+        cached_token_path = cached_token_path or self.cached_token_path
+        self.cached_token_path = cached_token_path
+                
         # Look in cache before logging in.
         if cached_token_path is not None and os.path.exists(cached_token_path):
             self.logger.info(f"Found cache file in {cached_token_path}, attempting to read the token from it.")
             try:
                 self._auth_session = self.http_session_class()
                 await _set_logged_in_state(username, _get_token_from_cache(cached_token_path, password))
-                return True
+                return self
             except LoggedOutException as e:
                 print(f"[Error] {e}. Attempting to re-login.")
                 pass
@@ -264,7 +298,9 @@ class ThreadsAPI:
             print("[ERROR] ", e)
             raise
 
-        return True
+        return self
+
+    start = login
 
     async def close_gracefully(self):
         if self._auth_session is not None:
