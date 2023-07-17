@@ -496,6 +496,6 @@ async def get_user_replies_while_authenticated():
 #asyncio.run(get_user_threads_while_authenticated()) # Retrieves the replies made by a user.
 #asyncio.run(get_user_replies_while_authenticated()) # Retrieves the profile information of a user.
 
-asyncio.run(get_timeline_with_api(ThreadsAPI(http_session_class=AioHTTPSession))) # Use aiohttp session under the hood
-asyncio.run(get_timeline_with_api(ThreadsAPI(http_session_class=RequestsSession))) # Use requests session under the hood
-asyncio.run(get_timeline_with_api(ThreadsAPI(http_session_class=InstagrapiSession))) # Use instagrapi session under the hood
+#asyncio.run(get_timeline_with_api(ThreadsAPI(http_session_class=AioHTTPSession))) # Use aiohttp session under the hood
+#asyncio.run(get_timeline_with_api(ThreadsAPI(http_session_class=RequestsSession))) # Use requests session under the hood
+#asyncio.run(get_timeline_with_api(ThreadsAPI(http_session_class=InstagrapiSession))) # Use instagrapi session under the hood
