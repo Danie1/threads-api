@@ -1,6 +1,7 @@
 import json
 import hashlib
 import time
+from datetime import datetime
 
 class Settings:
 
@@ -11,16 +12,16 @@ class Settings:
         Arguments:
             settings: (dict/str): a settings dictionary or a path to a JSON file.
         """
-        self._encrypted_token = None
-        self._timezone_offset = -14400
-        self._device_id = self.generate_android_device_id()
-        self._device_manufacturer = 'OnePlus'
-        self._device_model = 'ONEPLUS+A3010'
-        self._device_android_version = 25
-        self._device_android_release = '7.1.1'
+        self.encrypted_token = None
+        self.timezone_offset =  "-" + str((datetime.now() - datetime.utcnow()).seconds)
+        self.device_id = self.generate_android_device_id()
+        self.device_manufacturer = 'OnePlus'
+        self.device_model = 'ONEPLUS+A3010'
+        self.device_android_version = 25
+        self.device_android_release = '7.1.1'
 
     def set_encrypted_token(self, encrypted_token):
-        self._encrypted_token = encrypted_token
+        self.encrypted_token = encrypted_token
 
     def load_settings(self, path):
         """
@@ -38,7 +39,7 @@ class Settings:
         """
         with open(path, "r") as fp:
             self.set_settings(json.load(fp))
-            return self.settings
+            return self.get_settings()
         return None
 
     def dump_settings(self, path):
@@ -54,8 +55,9 @@ class Settings:
         -------
         Bool
         """
+        print(self.get_settings())
         with open(path, "w") as fp:
-            json.dump(self.get_settings(), fp, indent=4)
+            fp.write(json.dumps(self.get_settings(), indent=4))
         return True
     
     def get_settings(self):
@@ -69,17 +71,17 @@ class Settings:
         """
         return {
             'authentication': {
-                'encrypted_token': self._encrypted_token,
+                'encrypted_token': self.encrypted_token,
             },
             'timezone': {
-                'offset': self._timezone_offset,
+                'offset': self.timezone_offset,
             },
             'device': {
-                'id': self._device_id,
-                'manufacturer': self._device_manufacturer,
-                'model': self._device_model,
-                'android_version': self._device_android_version,
-                'android_release': self._device_android_release,
+                'id': self.device_id,
+                'manufacturer': self.device_manufacturer,
+                'model': self.device_model,
+                'android_version': self.device_android_version,
+                'android_release': self.device_android_release,
             },
         }
 
@@ -88,14 +90,29 @@ class Settings:
         if settings is None:
             raise Exception("Provide valid settings to set")
 
-        self._encrypted_token = settings.get('authentication').get('token')
-        self._timezone_offset = settings.get('timezone').get('offset')
-        self._device_id = settings.get('device').get('id')
-        self._device_manufacturer = settings.get('device').get('manufacturer')
-        self._device_model = settings.get('device').get('model')
-        self._device_android_version = settings.get('device').get('android_version')
-        self._device_android_release = settings.get('device').get('android_release')
+        self.encrypted_token = settings.get('authentication').get('token')
+        self.timezone_offset = settings.get('timezone').get('offset')
+        self.device_id = settings.get('device').get('id')
+        self.device_manufacturer = settings.get('device').get('manufacturer')
+        self.device_model = settings.get('device').get('model')
+        self.device_android_version = settings.get('device').get('android_version')
+        self.device_android_release = settings.get('device').get('android_release')
 
+    @property
+    def device_as_dict(self) -> dict:
+        """
+        Get a device information.
+
+        Returns:
+            The device information as a dict.
+        """
+        return {
+            'manufacturer': self.device_manufacturer,
+            'model': self.device_model,
+            'android_version': self.device_android_version,
+            'android_release': self.device_android_release,
+        }
+    
     def generate_android_device_id(self):
         """
         Helper to generate Android Device ID
