@@ -137,6 +137,8 @@ async def post():
     else:
         print("Unable to post.")
 
+    await api.close_gracefully()
+
 # Asynchronously posts a message with an image
 async def post_include_image():
     api = ThreadsAPI()
@@ -151,6 +153,8 @@ async def post_include_image():
         print("Post has been successfully posted")
     else:
         print("Unable to post.")
+    
+    await api.close_gracefully()
 
 # Asynchronously posts a message with a URL
 async def post_include_url():
@@ -166,6 +170,8 @@ async def post_include_url():
         print("Post has been successfully posted")
     else:
         print("Unable to post.")
+    
+    await api.close_gracefully()
 
 # Asynchronously follows a user
 async def follow_user():
@@ -474,6 +480,7 @@ async def get_user_replies_while_authenticated():
         print(f"User ID not found for username '{username}'")
     
     await api.close_gracefully()
+
 '''
  Remove the # to run an individual example function wrapper.
 
