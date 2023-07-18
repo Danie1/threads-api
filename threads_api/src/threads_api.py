@@ -509,7 +509,7 @@ class ThreadsAPI:
                 }
             
             data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
-
+            print(data)
             threads = data['data']['mediaData']['threads']
             return threads
     
