@@ -37,6 +37,8 @@ import requests
 
 from threads_api.src.http_sessions.aiohttp_session import AioHTTPSession
 
+OPEN_ISSUE_MESSAGE = f"{Fore.RED}Oops, this is an error that hasn't yet been properly handled.\nPlease open an issue on Github at https://github.com/Danie1/threads-api.{Style.RESET_ALL}"
+
 BASE_URL = "https://i.instagram.com/api/v1"
 LOGIN_URL = BASE_URL + "/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/"
 POST_URL_TEXTONLY = BASE_URL + "/media/configure_text_only_post/"
@@ -169,7 +171,7 @@ class ThreadsAPI:
         try:
             resp = json.loads(response)            
         except (aiohttp.ContentTypeError, json.JSONDecodeError):
-            raise Exception(f'Failed to decode response [{response}] as JSON.\n\nPlease open an issue on Github at Danie1/threads-api.')
+            raise Exception(f'Failed to decode response [{response}] as JSON.\n\n{OPEN_ISSUE_MESSAGE}')
 
         return resp
 
@@ -182,7 +184,7 @@ class ThreadsAPI:
         
         if 'status' in resp_json and resp_json['status'] == 'fail' or \
             'errors' in resp_json:
-            raise Exception(f"Request Failed, got back: [{resp_json}]\nPlease open an issue on Github at Danie1/threads-api.")
+            raise Exception(f"Request Failed, got back: [{resp_json}]\n{OPEN_ISSUE_MESSAGE}")
     
         return resp_json
     
@@ -196,7 +198,7 @@ class ThreadsAPI:
         
         if 'status' in resp_json and resp_json['status'] == 'fail' or \
             'errors' in resp_json:
-            raise Exception(f"Request Failed, got back: [{resp_json}]\nPlease open an issue on Github at Danie1/threads-api.")
+            raise Exception(f"Request Failed, got back: [{resp_json}]\n{OPEN_ISSUE_MESSAGE}")
     
         return resp_json
     
@@ -209,7 +211,7 @@ class ThreadsAPI:
         
         if 'status' in resp_json and resp_json['status'] == 'fail' or \
             'errors' in resp_json:
-            raise Exception(f"Request Failed, got back: [{resp_json}]\nPlease open an issue on Github at Danie1/threads-api.")
+            raise Exception(f"Request Failed, got back: [{resp_json}]\n{OPEN_ISSUE_MESSAGE}")
     
         return resp_json
     
@@ -221,7 +223,7 @@ class ThreadsAPI:
         
         if 'status' in resp_json and resp_json['status'] == 'fail' or \
             'errors' in resp_json:
-            raise Exception(f"Request Failed, got back: [{resp_json}]\nPlease open an issue on Github at Danie1/threads-api.")
+            raise Exception(f"Request Failed, got back: [{resp_json}]\n{OPEN_ISSUE_MESSAGE}")
     
         return resp_json
     
