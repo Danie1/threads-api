@@ -39,8 +39,19 @@ async def post(api):
     else:
         print("Unable to post.")
 
-    
+# Asynchronously posts a message
+async def post_and_quote(api):
+    post_url = "https://www.threads.net/t/CuZsgfWLyiI"
+    post_id = await api.get_post_id_from_url(post_url)
 
+    result = await api.post("What do you think of this?", quoted_post_id=post_id)
+
+    if result:
+        print("Post has been successfully posted")
+    else:
+        print("Unable to post.")
+
+    
 # Asynchronously posts a message with an image
 async def post_include_image(api):
     result = await api.post("Hello World with an image!", image_path=".github/logo.jpg")
@@ -220,6 +231,39 @@ async def get_user_replies(api):
             print(f"{username}'s Reply: {thread['thread_items'][1]['post']['caption']['text']} || Likes: {thread['thread_items'][1]['post']['like_count']}\n-")
     else:
         print(f"User ID not found for username '{username}'")
+
+# Asynchronously gets a post
+async def get_post(api : ThreadsAPI):
+    post_url = "https://www.threads.net/t/CuZsgfWLyiI"
+
+    post_id = await api.get_post_id_from_url(post_url)
+
+    thread = await api.get_post(post_id)
+    print(f"{thread['containing_thread']['thread_items'][0]['post']['user']['username']}'s post {thread['containing_thread']['thread_items'][0]['post']['caption']}:")
+
+    for thread in thread["reply_threads"]:
+        if 'thread_items' in thread and len(thread['thread_items']) > 1:
+            print(f"-\n{thread['thread_items'][0]['post']['user']['username']}'s Reply: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
+
+# Asynchronously gets the likes for a post
+async def get_post_likes(api : ThreadsAPI):
+    post_url = "https://www.threads.net/t/CuZsgfWLyiI"
+
+    post_id = await api.get_post_id_from_url(post_url)
+
+    likes = await api.get_post_likes(post_id)
+    number_of_likes_to_display = 10
+
+    for user_info in likes['users'][:number_of_likes_to_display]:
+        print(f'Username: {user_info["username"]} || Full Name: {user_info["full_name"]}')
+
+# Asynchronously gets the likes for a post
+async def repost_and_delete(api : ThreadsAPI):
+    post_url = "https://www.threads.net/t/Cu0BgHESnwF"
+
+    post_id = await api.get_post_id_from_url(post_url)
+    await api.repost(post_id)
+    await api.delete_repost(post_id)
     
 async def main():
     supported_http_session_classes = [AioHTTPSession, RequestsSession, InstagrapiSession]
@@ -235,6 +279,7 @@ async def main():
         if is_success:
             print(f"Executing API calls using [{http_session_class}] session.")
             #await post(api) # Posts a message.
+            #await post_and_quote(api) # Post a message and quote another post
             #await post_include_image(api) # Posts a message with an image.
             #await post_include_image_from_url(api) # Posts a message with an image.
             #await post_include_url(api) # Posts a message with a URL.
@@ -249,7 +294,10 @@ async def main():
             #await get_timeline(api) # Display items from the timeline
             #await get_user_threads(api) # Retrieves the replies made by a user.
             #await get_user_replies(api) # Retrieves the profile information of a user.
-        
+            #await get_post(api) # Retrieves a post and its associated replies.
+            #await get_post_likes(api) # Get likers of a post
+            #await repost_and_delete(api) # Repost a post and delete it immediately
+
         await api.close_gracefully()
      
 if __name__ == "__main__":

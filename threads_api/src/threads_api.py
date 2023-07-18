@@ -167,7 +167,10 @@ class ThreadsAPI:
         try:
             resp = json.loads(response)            
         except (aiohttp.ContentTypeError, json.JSONDecodeError):
-            raise Exception(f'Failed to decode response [{response}] as JSON.\n\n{OPEN_ISSUE_MESSAGE}')
+            if response.find("not-logged-in") > 0:
+                raise Exception(f"You're trying to perform an operation without permission. Check: Are you logged into the correct user? Can you perform the action on the input provided?")
+            else:
+                raise Exception(f'Failed to decode response [{response}] as JSON.\n\n{OPEN_ISSUE_MESSAGE}')
 
         return resp
 
@@ -585,7 +588,7 @@ class ThreadsAPI:
             id = (id * 64) + alphabet.index(char)
         return str(id)
 
-    async def get_post(self, post_id: str):
+    async def get_post(self, post_id: str, count=10, max_id=None):
         """
         Retrieves the post information for a given post ID.
 
@@ -600,7 +603,11 @@ class ThreadsAPI:
         """
         
         if self.is_logged_in:
-            response = await self._private_get(url=f'{BASE_URL}/text_feed/{post_id}/replies', headers=self.auth_headers)
+            if max_id is not None:
+                params = {'count': count, 'max_id':max_id}
+            else:
+                params = {'count': count}
+            response = await self._private_get(url=f'{BASE_URL}/text_feed/{post_id}/replies', headers=self.auth_headers, data=params)
         else:
             url = 'https://www.threads.net/api/graphql'
             
@@ -643,32 +650,62 @@ class ThreadsAPI:
         Raises:
             Exception: If an error occurs during the post likes retrieval process.
         """
-        url = 'https://www.threads.net/api/graphql'
-        
-        modified_headers = copy.deepcopy(await self._get_public_headers())
+        if self.is_logged_in:
+            response = await self._private_get(url=f'{BASE_URL}/media/{post_id}_{self.user_id}/likers', headers=self.auth_headers)
+        else:
+            url = 'https://www.threads.net/api/graphql'
+            
+            modified_headers = copy.deepcopy(await self._get_public_headers())
 
-        modified_headers.update({
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'x-fb-friendly-name': 'BarcelonaPostPageQuery',
-            'x-fb-lsd': self.FBLSDToken,
-        })
+            modified_headers.update({
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'same-origin',
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+                'x-fb-friendly-name': 'BarcelonaPostPageQuery',
+                'x-fb-lsd': self.FBLSDToken,
+            })
 
-        payload = {
-                'lsd': self.FBLSDToken,
-                'variables': json.dumps(
-                    {
-                        'mediaID': post_id,
-                    }
-                ),
-                'doc_id': '9360915773983802',
-            }
+            payload = {
+                    'lsd': self.FBLSDToken,
+                    'variables': json.dumps(
+                        {
+                            'mediaID': post_id,
+                        }
+                    ),
+                    'doc_id': '9360915773983802',
+                }
 
-        data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
+            data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
 
-        return data['data']['likers']['users']
+            response = data['data']['likers']['users']
+        return response
+
+    @require_login
+    async def repost(self, post_id):
+        """
+        Repost a post.
+
+        Args:
+            post_id (int): a post's identifier.
+
+        Returns:
+            The reposting information as a dict.
+        """
+        return await self._private_post(url=f'{BASE_URL}/repost/create_repost/', headers=self.auth_headers, data=f'media_id={post_id}')
+
+    @require_login
+    async def delete_repost(self, post_id):
+        """
+        Delete a repost.
+
+        Args:
+            post_id (int): a post's identifier.
+
+        Returns:
+            The unreposting information as a dict.
+        """
+        return await self._private_post(url=f'{BASE_URL}/repost/delete_text_app_repost/', headers=self.auth_headers, data=f'original_media_id={post_id}')
 
     @require_login
     async def get_user_followers(self, user_id: str) -> bool:
@@ -955,8 +992,7 @@ class ThreadsAPI:
     
     @require_login
     async def post(
-        self, caption: str, image_path: str = None, url: str = None, parent_post_id: str = None
-    ) -> bool:
+        self, caption: str, image_path: str = None, url: str = None, parent_post_id: str = None, quoted_post_id: str = None) -> bool:
         """
         Creates a new post with the given caption, image, URL, and parent post ID.
 
@@ -1083,6 +1119,9 @@ class ThreadsAPI:
 
         if parent_post_id is not None:
             params["text_post_app_info"]["reply_id"] = parent_post_id
+
+        if quoted_post_id is not None:
+            params["text_post_app_info"]["quoted_post_id"] = quoted_post_id
 
         params = json.dumps(params)
         payload = f"signed_body=SIGNATURE.{urllib.parse.quote(params)}"

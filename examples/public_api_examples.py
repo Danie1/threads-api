@@ -97,8 +97,6 @@ async def get_post_likes(api : ThreadsAPI):
     for user_info in likes[:number_of_likes_to_display]:
         print(f'Username: {user_info["username"]} || Full Name: {user_info["full_name"]} || Follower Count: {user_info["follower_count"]} ')
 
-    await api.close_gracefully()
-
 '''
  Remove the # to run an individual example function wrapper.
 
