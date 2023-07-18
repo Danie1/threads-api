@@ -16,7 +16,7 @@ It allows you to configure the session object. Choose between:
 * `aiohttp` - Python library to ease asynchronous execution of the API, for ⚡ super-fast ⚡ results. (*default*)
 * `requests` - Python library for standard ease of use (supports `HTTP_PROXY` env var functionality)
 * `instagrapi` - utilize the same connection all the way for private api
-* (Advanced) Implement your own and call ThreadsAPI like this: `ThreadsAPI(http_class=YourOwnHTTPSessionImpl)`
+* (Advanced) Implement your own and call ThreadsAPI like this: `ThreadsAPI(http_session_class=YourOwnHTTPSessionImpl)`
 
 > **Note** Since v1.1.3 we are using ```instagrapi``` package to login.
 
@@ -80,9 +80,8 @@ async def post():
 async def main():
     await post()
 
-# Create an event loop and run the main function
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
+# Run the main function
+asyncio.run(main())
 ```
 
 ## Customize HTTP Client
@@ -157,13 +156,16 @@ pip install -r requirements.txt
 - [x] ✅ Read recommended posts from timeline (Requires Login 🔒)
 - [x] ✅ Write Posts (Requires Login 🔒)
   - [x] ✅ Posts with just text
+  - [x] ✅ Posts and quote another post
   - [x] ✅ Posts with text and an image
-  - [x] ✅ Posts with text that share a url
+  - [x] ✅ Posts with text that shares a url
+  - [x] ✅ Repost a post
   - [x] ✅ Reply to Posts
 - [x] ✅ Perform Actions (Requires Login 🔒)
   - [x] ✅ Like Posts
   - [x] ✅ Unlike Posts
   - [x] ✅ Delete post
+  - [x] ✅ Delete repost
   - [x] ✅ Follow User
   - [x] ✅ Unfollow User
   - [x] ✅ Block User
@@ -186,13 +188,18 @@ pip install -r requirements.txt
   - [x] ✅  GitHub Actions Pipeline
 
 ## Usage Examples
-View [example.py](https://github.com/Danie1/threads-api/blob/main/example.py) for code examples. 
+View [examples/public_api_examples.py](https://github.com/Danie1/threads-api/blob/main/examples/public_api_examples.py) for Public API code examples. For the Private API usage (requires login), head over to [examples/private_api_examples.py](https://github.com/Danie1/threads-api/blob/main/examples/private_api_examples.py)
+
 At the end of the file you will be able to uncomment and run the individual examples with ease.
 
 Then simply run as:
 ```
+python3 examples/public_api_examples.py
+
+# or
+
 # Pass the credentials as environment variables
-USERNAME=<Instagram Username> PASSWORD=<Instagram Password> python3 example.py
+USERNAME=<Instagram Username> PASSWORD=<Instagram Password> python3 examples/private_api_examples.py
 ```
 
 ### Samples
@@ -367,6 +374,8 @@ async def get_post():
 
     for thread in thread["reply_threads"]:
         print(f"-\n{thread['thread_items'][0]['post']['user']['username']}'s Post: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
+
+    await api.close_gracefully()
 ```
 
 Example Output:
@@ -416,6 +425,8 @@ async def get_post_likes():
 
     for user_info in likes[:number_of_likes_to_display]:
         print(f'Username: {user_info["username"]} || Full Name: {user_info["full_name"]} || Follower Count: {user_info["follower_count"]} ')
+    
+    await api.close_gracefully()
 ```
 
 Example Output:
@@ -447,6 +458,8 @@ async def post():
         print("Post has been successfully posted")
     else:
         print("Unable to post.")
+
+    await api.close_gracefully()
 ```
 
 Example Output:
@@ -456,12 +469,12 @@ Post has been successfully posted
 </details>
 
 ## 📌 Roadmap
-- [ ] 🚧 Read feed, notifications
+- [ ] 🚧 Upload multiple images at once to a post
 - [ ] 🚧 Post text and share a video
+- [ ] 🚧 Implement all public API functions with private API, including pagination
 - [ ] 🚧 Documentation Improvements
 - [ ] 🚧 CI/CD Improvements
-  - [ ] 🚧 Add coverage Pytest
-
+  - [ ] 🚧 Add coverage Pytest + Widget to README
 
 # License
 This project is licensed under the MIT license.

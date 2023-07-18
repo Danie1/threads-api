@@ -17,6 +17,8 @@ async def get_user_id_from_username():
         print(f"The user ID for username '{username}' is: {user_id}")
     else:
         print(f"User ID not found for username '{username}'")
+    
+    await api.close_gracefully()
 
 # Asynchronously gets the threads for a user
 async def get_user_threads():
@@ -32,6 +34,8 @@ async def get_user_threads():
             print(f"{username}'s Post: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
     else:
         print(f"User ID not found for username '{username}'")
+    
+    await api.close_gracefully()
 
 # Asynchronously gets the replies for a user
 async def get_user_replies():
@@ -54,6 +58,8 @@ async def get_user_replies():
     else:
         print(f"User ID not found for username '{username}'")
 
+    await api.close_gracefully()
+
 
 # Asynchronously gets the user profile
 async def get_user_profile():
@@ -71,6 +77,8 @@ async def get_user_profile():
     else:
         print(f"User ID not found for username '{username}'")
 
+    await api.close_gracefully()
+
 # Asynchronously gets the post ID from a URL
 async def get_post_id_from_url():
     api = ThreadsAPI()
@@ -78,6 +86,8 @@ async def get_post_id_from_url():
 
     post_id = await api.get_post_id_from_url(post_url)
     print(f"Thread post_id is {post_id}")
+
+    await api.close_gracefully()
 
 # Asynchronously gets a post
 async def get_post():
@@ -92,6 +102,8 @@ async def get_post():
     for thread in thread["reply_threads"]:
         print(f"-\n{thread['thread_items'][0]['post']['user']['username']}'s Reply: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
 
+    await api.close_gracefully()
+
 # Asynchronously gets the likes for a post
 async def get_post_likes():
     api = ThreadsAPI()
@@ -104,6 +116,8 @@ async def get_post_likes():
 
     for user_info in likes[:number_of_likes_to_display]:
         print(f'Username: {user_info["username"]} || Full Name: {user_info["full_name"]} || Follower Count: {user_info["follower_count"]} ')
+
+    await api.close_gracefully()
 
 # Asynchronously posts a message
 async def post():
@@ -130,6 +144,23 @@ async def post_include_image():
     result = False
     if is_success:
         result = await api.post("Hello World with an image!", image_path=".github/logo.jpg")
+
+    if result:
+        print("Post has been successfully posted")
+    else:
+        print("Unable to post.")
+    
+    await api.close_gracefully()
+
+# Asynchronously posts a message with an image
+async def post_include_image_from_url():
+    api = ThreadsAPI()
+    is_success = await api.login(os.environ.get('USERNAME'), os.environ.get('PASSWORD'), cached_token_path=".token")
+    print(f"Login status: {'Success' if is_success else 'Failed'}")
+
+    result = False
+    if is_success:
+        result = await api.post("Hello World with an image!", image_path="https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png")
 
     if result:
         print("Post has been successfully posted")
@@ -482,6 +513,7 @@ async def get_user_replies_while_authenticated():
 
 #asyncio.run(post()) # Posts a message.
 #asyncio.run(post_include_image()) # Posts a message with an image.
+#asyncio.run(post_include_image_from_url()) # Posts a message with an image.
 #asyncio.run(post_include_url()) # Posts a message with a URL.
 #asyncio.run(follow_user()) # Follows a user.
 #asyncio.run(unfollow_user()) # Unfollows a user.

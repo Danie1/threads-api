@@ -25,29 +25,14 @@ class RequestsSession(HTTPSession):
         return token
 
     async def post(self, **kwargs):
-        log_debug(title='PRIVATE REQUEST', type='POST', requests_session_params=vars(self._session), **kwargs)
         response = self._session.post(**kwargs)
-        try:
-            resp = response.json()
-            log_debug(title='PRIVATE RESPONSE', response=resp)
-
-            if resp['status'] == 'fail':
-                raise Exception(f"Request Failed: [{resp['message']}]")
-        except (requests.exceptions.RequestException, json.JSONDecodeError):
-            raise Exception('Failed to decode response as JSON')
-        
-        return resp
+        return response.text
 
     async def get(self, **kwargs):
-        log_debug(title='PRIVATE REQUEST', type='GET', **kwargs)
         response = self._session.get(**kwargs)
-        try:
-            resp = response.json()
-            log_debug(title='PRIVATE RESPONSE', response=resp)
-
-            if resp['status'] == 'fail':
-                raise Exception(f"Request Failed: [{resp['message']}]")
-        except (requests.exceptions.RequestException, json.JSONDecodeError):
-            raise Exception('Failed to decode response as JSON')
-        
-        return resp
+        return response.text
+    
+    async def download(self, **kwargs):
+        response = self._session.get(**kwargs, stream=True)
+        response.raw.decode_content = True
+        return response.content

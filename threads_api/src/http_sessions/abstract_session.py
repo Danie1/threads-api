@@ -13,3 +13,6 @@ class HTTPSession:
 
     async def get(self, **kwargs):
         raise NotImplementedError
+    
+    async def download(self, **kwargs):
+        raise NotImplementedError

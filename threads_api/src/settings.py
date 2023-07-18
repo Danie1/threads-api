@@ -89,7 +89,7 @@ class Settings:
         if settings is None:
             raise Exception("Provide valid settings to set")
 
-        self.encrypted_token = settings.get('authentication').get('token')
+        self.encrypted_token = settings.get('authentication').get('encrypted_token')
         self.timezone_offset = settings.get('timezone').get('offset')
         self.device_id = settings.get('device').get('id')
         self.device_manufacturer = settings.get('device').get('manufacturer')

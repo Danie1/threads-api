@@ -2,7 +2,6 @@ import aiohttp
 import json
 
 from threads_api.src.http_sessions.abstract_session import HTTPSession
-from threads_api.src.anotherlogger import log_debug
 
 from instagrapi import Client
 
@@ -28,34 +27,16 @@ class AioHTTPSession(HTTPSession):
         token = self._instagrapi_client.private.headers['Authorization'].split("Bearer IGT:2:")[1]
         return token
     
-    async def post(self, **kwargs):
-        log_debug(title='PRIVATE REQUEST', type='POST', **kwargs)
-        async with self._session.post(**kwargs) as response:
-            try:
-                text = await response.text()
-                resp = json.loads(text)
-                log_debug(title='PRIVATE RESPONSE', response=resp)
+    async def download(self, **kwargs):
+        async with self._session.get(**kwargs) as response:
+            return await response.read()
 
-                if resp['status'] == 'fail':
-                    raise Exception(f"Request Failed: [{resp['message']}]")
-            except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                raise Exception('Failed to decode response as JSON')
-            
-            return resp
+    async def post(self, **kwargs):
+        async with self._session.post(**kwargs) as response:
+            return await response.text()
 
     async def get(self, **kwargs):
-        log_debug(title='PRIVATE REQUEST', type='GET', **kwargs)
         async with self._session.get(**kwargs) as response:
-            try:
-                text = await response.text()
-                resp = json.loads(text)
-                log_debug(title='PRIVATE RESPONSE', response=resp)
-
-                if resp['status'] == 'fail':
-                    raise Exception(f"Request Failed: [{resp['message']}]")
-            except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                raise Exception('Failed to decode response as JSON')
-            
-            return resp
+            return await response.text()
 
 
