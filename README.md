@@ -80,9 +80,8 @@ async def post():
 async def main():
     await post()
 
-# Create an event loop and run the main function
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
+# Run the main function
+asyncio.run(main())
 ```
 
 ## Customize HTTP Client
@@ -157,13 +156,16 @@ pip install -r requirements.txt
 - [x] ✅ Read recommended posts from timeline (Requires Login 🔒)
 - [x] ✅ Write Posts (Requires Login 🔒)
   - [x] ✅ Posts with just text
+  - [x] ✅ Posts and quote another post
   - [x] ✅ Posts with text and an image
-  - [x] ✅ Posts with text that share a url
+  - [x] ✅ Posts with text that shares a url
+  - [x] ✅ Repost a post
   - [x] ✅ Reply to Posts
 - [x] ✅ Perform Actions (Requires Login 🔒)
   - [x] ✅ Like Posts
   - [x] ✅ Unlike Posts
   - [x] ✅ Delete post
+  - [x] ✅ Delete repost
   - [x] ✅ Follow User
   - [x] ✅ Unfollow User
   - [x] ✅ Block User
@@ -372,6 +374,8 @@ async def get_post():
 
     for thread in thread["reply_threads"]:
         print(f"-\n{thread['thread_items'][0]['post']['user']['username']}'s Post: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
+
+    await api.close_gracefully()
 ```
 
 Example Output:
@@ -421,6 +425,8 @@ async def get_post_likes():
 
     for user_info in likes[:number_of_likes_to_display]:
         print(f'Username: {user_info["username"]} || Full Name: {user_info["full_name"]} || Follower Count: {user_info["follower_count"]} ')
+    
+    await api.close_gracefully()
 ```
 
 Example Output:
@@ -452,6 +458,8 @@ async def post():
         print("Post has been successfully posted")
     else:
         print("Unable to post.")
+
+    await api.close_gracefully()
 ```
 
 Example Output:
