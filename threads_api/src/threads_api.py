@@ -165,18 +165,11 @@ class ThreadsAPI:
         self.log_level = log_level
         logging.basicConfig(level=self.log_level, format='%(levelname)s:%(message)s')
 
-    def log_request(self, type, url, header, payload=""):
-        self.logger.debug(f'{Fore.GREEN}-\nRequest [{Style.RESET_ALL}{type}{Fore.GREEN}] -> URL: [{Style.RESET_ALL}{url}{Fore.GREEN}]\nHeader: [{Style.RESET_ALL}{header}{Fore.GREEN}]\nRequest Payload: [{Style.RESET_ALL}{payload}{Fore.GREEN}]\n-{Style.RESET_ALL}')
-
-    def log_response(self, url, resp):
-        self.logger.debug(f'{Fore.GREEN}-\nResponse -> URL: [{Style.RESET_ALL}{url}{Fore.GREEN}]\nResponse Payload: [{Style.RESET_ALL}{resp}{Fore.GREEN}]\n-{Style.RESET_ALL}')
-        return resp
-
     def _extract_response_json(self, response):
         try:
             resp = json.loads(response)            
         except (aiohttp.ContentTypeError, json.JSONDecodeError):
-            raise Exception('Failed to decode response as JSON')
+            raise Exception(f'Failed to decode response [{response}] as JSON.\n\nPlease open an issue on Github at Danie1/threads-api.')
 
         return resp
 
@@ -187,10 +180,12 @@ class ThreadsAPI:
         resp_json = self._extract_response_json(response)
         log_debug(title='PRIVATE RESPONSE', response=resp_json)
         
-        if 'status' in resp_json and resp_json['status'] == 'fail':
-            raise Exception(f"Request Failed: [{resp_json['message']}]")
-        
+        if 'status' in resp_json and resp_json['status'] == 'fail' or \
+            'errors' in resp_json:
+            raise Exception(f"Request Failed, got back: [{resp_json}]\nPlease open an issue on Github at Danie1/threads-api.")
+    
         return resp_json
+    
 
     @require_login
     async def _private_get(self, **kwargs):
@@ -199,10 +194,12 @@ class ThreadsAPI:
         resp_json = self._extract_response_json(response)
         log_debug(title='PRIVATE RESPONSE', response=resp_json)
         
-        if 'status' in resp_json and resp_json['status'] == 'fail':
-            raise Exception(f"Request Failed: [{resp_json['message']}]")
-        
+        if 'status' in resp_json and resp_json['status'] == 'fail' or \
+            'errors' in resp_json:
+            raise Exception(f"Request Failed, got back: [{resp_json}]\nPlease open an issue on Github at Danie1/threads-api.")
+    
         return resp_json
+    
 
     async def _public_post_json(self, **kwargs):
         log_debug(title='PUBLIC REQUEST', type='POST', **kwargs)
@@ -210,9 +207,10 @@ class ThreadsAPI:
         resp_json = self._extract_response_json(response)
         log_debug(title='PUBLIC RESPONSE', response=resp_json)
         
-        if 'status' in resp_json and resp_json['status'] == 'fail':
-            raise Exception(f"Request Failed: [{resp_json['message']}]")
-        
+        if 'status' in resp_json and resp_json['status'] == 'fail' or \
+            'errors' in resp_json:
+            raise Exception(f"Request Failed, got back: [{resp_json}]\nPlease open an issue on Github at Danie1/threads-api.")
+    
         return resp_json
     
     async def _public_get_json(self, **kwargs):
@@ -221,9 +219,10 @@ class ThreadsAPI:
         resp_json = self._extract_response_json(response)
         log_debug(title='PUBLIC RESPONSE', response=resp_json)
         
-        if 'status' in resp_json and resp_json['status'] == 'fail':
-            raise Exception(f"Request Failed: [{resp_json['message']}]")
-        
+        if 'status' in resp_json and resp_json['status'] == 'fail' or \
+            'errors' in resp_json:
+            raise Exception(f"Request Failed, got back: [{resp_json}]\nPlease open an issue on Github at Danie1/threads-api.")
+    
         return resp_json
     
     async def _public_post_text(self, **kwargs):
@@ -509,7 +508,7 @@ class ThreadsAPI:
                 }
             
             data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
-            print(data)
+            
             threads = data['data']['mediaData']['threads']
             return threads
     
