@@ -16,7 +16,7 @@ It allows you to configure the session object. Choose between:
 * `aiohttp` - Python library to ease asynchronous execution of the API, for ⚡ super-fast ⚡ results. (*default*)
 * `requests` - Python library for standard ease of use (supports `HTTP_PROXY` env var functionality)
 * `instagrapi` - utilize the same connection all the way for private api
-* (Advanced) Implement your own and call ThreadsAPI like this: `ThreadsAPI(http_class=YourOwnHTTPSessionImpl)`
+* (Advanced) Implement your own and call ThreadsAPI like this: `ThreadsAPI(http_session_class=YourOwnHTTPSessionImpl)`
 
 > **Note** Since v1.1.3 we are using ```instagrapi``` package to login.
 

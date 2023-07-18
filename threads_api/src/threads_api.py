@@ -29,6 +29,7 @@ from instagrapi import Client
 import logging
 import sys
 from threads_api.src.anotherlogger import format_log
+from threads_api.src.anotherlogger import log_debug
 from colorama import init, Fore, Style
 import functools
 from threads_api.src.settings import Settings
@@ -40,6 +41,7 @@ BASE_URL = "https://i.instagram.com/api/v1"
 LOGIN_URL = BASE_URL + "/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/"
 POST_URL_TEXTONLY = BASE_URL + "/media/configure_text_only_post/"
 POST_URL_IMAGE = BASE_URL + "/media/configure_text_post_app_feed/"
+POST_URL_SIDECAR = BASE_URL + "/media/configure_text_post_app_sidecar/"
 DEFAULT_HEADERS = {
             'Authority': 'www.threads.net',
             'Accept': '*/*',
@@ -129,12 +131,21 @@ class ThreadsAPI:
         self.settings_path = settings_path
         self.settings = Settings()
 
-        # Create settings in filesystem if provided
-        if settings_path is not None and not os.path.exists(settings_path):
-            self.settings.dump_settings(settings_path)
+        # Check if settings_path is configured
+        if settings_path is not None:
+            if os.path.exists(settings_path):
+                self.settings.load_settings(settings_path)
+            else:
+                # Create settings file on filesystem if it doesn't exist already
+                self.settings.dump_settings(settings_path)
+        
+        # Set the HTTP client class to use when initializing sessions
+        self.http_session_class = http_session_class
+
+        # Setup public connection members
+        self._public_session = self.http_session_class()
 
         # Setup private connection members
-        self.http_session_class = http_session_class
         self._auth_session = None
         self.token = None
         self.user_id = None
@@ -161,13 +172,73 @@ class ThreadsAPI:
         self.logger.debug(f'{Fore.GREEN}-\nResponse -> URL: [{Style.RESET_ALL}{url}{Fore.GREEN}]\nResponse Payload: [{Style.RESET_ALL}{resp}{Fore.GREEN}]\n-{Style.RESET_ALL}')
         return resp
 
+    def _extract_response_json(self, response):
+        try:
+            resp = json.loads(response)            
+        except (aiohttp.ContentTypeError, json.JSONDecodeError):
+            raise Exception('Failed to decode response as JSON')
+
+        return resp
+
     @require_login
     async def _private_post(self, **kwargs):
-        return await self._auth_session.post(**kwargs)
+        log_debug(title='PRIVATE REQUEST', type='POST', **kwargs)
+        response = await self._auth_session.post(**kwargs)
+        resp_json = self._extract_response_json(response)
+        log_debug(title='PRIVATE RESPONSE', response=resp_json)
+        
+        if resp_json['status'] == 'fail':
+            raise Exception(f"Request Failed: [{resp_json['message']}]")
+        
+        return resp_json
 
     @require_login
     async def _private_get(self, **kwargs):
-        return await self._auth_session.get(**kwargs)
+        log_debug(title='PRIVATE REQUEST', type='GET', **kwargs)
+        response = await self._auth_session.get(**kwargs)
+        resp_json = self._extract_response_json(response)
+        log_debug(title='PRIVATE RESPONSE', response=resp_json)
+        
+        if resp_json['status'] == 'fail':
+            raise Exception(f"Request Failed: [{resp_json['message']}]")
+        
+        return resp_json
+
+    async def _public_post_json(self, **kwargs):
+        log_debug(title='PUBLIC REQUEST', type='POST', **kwargs)
+        response = await self._public_session.post(**kwargs)
+        resp_json = self._extract_response_json(response)
+        log_debug(title='PUBLIC RESPONSE', response=resp_json)
+        
+        if resp_json['status'] == 'fail':
+            raise Exception(f"Request Failed: [{resp_json['message']}]")
+        
+        return resp_json
+    
+    async def _public_get_json(self, **kwargs):
+        log_debug(title='PUBLIC REQUEST', type='GET', **kwargs)
+        response = await self._public_session.get(**kwargs)
+        resp_json = self._extract_response_json(response)
+        log_debug(title='PUBLIC RESPONSE', response=resp_json)
+        
+        if resp_json['status'] == 'fail':
+            raise Exception(f"Request Failed: [{resp_json['message']}]")
+        
+        return resp_json
+    
+    async def _public_post_text(self, **kwargs):
+        log_debug(title='PUBLIC REQUEST', type='POST', **kwargs)
+        response = await self._public_session.post(**kwargs)
+        log_debug(title='PUBLIC RESPONSE', response=response)
+        
+        return response
+
+    async def _public_get_text(self, **kwargs):
+        log_debug(title='PUBLIC REQUEST', type='GET', **kwargs)
+        response = await self._public_session.get(**kwargs)
+        log_debug(title='PUBLIC RESPONSE', response=response)
+
+        return response
 
     async def load_settings(self, path: str = None):
         return self.settings.load_settings(path)
@@ -185,14 +256,12 @@ class ThreadsAPI:
         modified_default_headers = copy.deepcopy(DEFAULT_HEADERS)
         del modified_default_headers['X-FB-LSD']
         url = 'https://www.instagram.com/instagram'
-        async with aiohttp.ClientSession() as session:
-            #self.log_request('GET', url, modified_default_headers)
-            async with session.get(url, headers=modified_default_headers) as response:
-                data = await response.text()
-                #self.log_response(url, data)
-                token_key_value = re.search('LSD",\\[\\],{"token":"(.*?)"},\\d+\\]', data).group()
-                token_key_value = token_key_value.replace('LSD",[],{"token":"', '')
-                token = token_key_value.split('"')[0]
+
+        data = await self._public_get_text(url=url, headers=modified_default_headers)
+
+        token_key_value = re.search('LSD",\\[\\],{"token":"(.*?)"},\\d+\\]', data).group()
+        token_key_value = token_key_value.replace('LSD",[],{"token":"', '')
+        token = token_key_value.split('"')[0]
 
         self.FBLSDToken = token
         return self.FBLSDToken
@@ -304,29 +373,13 @@ class ThreadsAPI:
             await self._auth_session.close()
             self._auth_session = None
 
+        if self._public_session is not None:
+            await self._public_session.close()
+            self._public_session = None
+
         self.user_id = None
         self.is_logged_in = False
         self.token = None
-
-    async def __auth_required_post_request(self, url: str):
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, self.auth_headers)
-            async with session.post(url, headers=self.auth_headers) as response:
-                resp = await response.json()
-                self.log_response(url, resp)
-
-                if resp['status'] == 'fail':
-                    raise Exception(f"Request Failed: [{resp['message']}]")
-                return resp
-    
-    async def __auth_required_get_request(self, url: str):
-        async with aiohttp.ClientSession() as session:
-            self.log_request('GET', url, self.auth_headers)
-            async with session.get(url, headers=self.auth_headers) as response:
-                resp = await response.json()
-                self.log_response(url, resp)
-                return resp
-    
 
     async def get_user_id_from_username(self, username: str) -> str:
         """
@@ -340,38 +393,28 @@ class ThreadsAPI:
         """
         if self.is_logged_in and self.username == username:
             self.logger.info(f"Fetching user_id for user [{username}] while logged-in")
-            url = BASE_URL + f"/users/{username}/usernameinfo/"
-            async with aiohttp.ClientSession() as session:
-                self.log_request('GET', url, self.auth_headers)
-                async with session.get(url, headers=self.auth_headers) as response:
-                    data = await response.json()
-                    self.log_response(url, data)
-                    
-                    if 'message' in data and data['message'] == "login_required" or \
-                        'status' in data and data['status'] == 'fail':
-                        if 'User not onboarded' in data['message']:
-                            raise Exception(f"User {username} is not onboarded to threads.net")
-                        elif 'challenge_required' in data['message'] and \
-                           'challenge' in data and 'url' in data['challenge'] and \
-                            'https://www.instagram.com/accounts/suspended/' in data['challenge']['url']:
-                            raise Exception(f"User {username} is suspended from threads.net :(")
-                        
-                        # Cross fingers you reach this exception and not the previous ones
-                        raise LoggedOutException(str(data))
-                    
-                    user_id = int(data['user']['pk'])
-                    return user_id
+            
+            data = await self._private_get(url=f"{BASE_URL}/users/{username}/usernameinfo/", headers=self.auth_headers)
+            
+            if 'message' in data and data['message'] == "login_required" or \
+                'status' in data and data['status'] == 'fail':
+                if 'User not onboarded' in data['message']:
+                    raise Exception(f"User {username} is not onboarded to threads.net")
+                elif 'challenge_required' in data['message'] and \
+                    'challenge' in data and 'url' in data['challenge'] and \
+                    'https://www.instagram.com/accounts/suspended/' in data['challenge']['url']:
+                    raise Exception(f"User {username} is suspended from threads.net :(")
+                
+                # Cross fingers you reach this exception and not the previous ones
+                raise LoggedOutException(str(data))
+            
+            user_id = int(data['user']['pk'])
+            return user_id
         else:
             self.logger.info(f"Fetching user_id for user [{username}] anonymously")
-            url = f"https://www.threads.net/@{username}"
             
             headers = await self._get_public_headers()
-
-            async with aiohttp.ClientSession() as session:
-                #self.log_request('GET', url, headers)
-                async with session.get(url, headers=headers) as response:
-                    text = await response.text()
-                    #self.log_response(url, text)
+            text = await self._public_get_text(url=f"https://www.threads.net/@{username}", headers=headers)
 
             text = text.replace('\\s', "").replace('\\n', "")
             user_id = re.search(r'"props":{"user_id":"(\d+)"},', text)
@@ -413,14 +456,9 @@ class ThreadsAPI:
                 ),
                 'doc_id': '23996318473300828'
             }
+    
+        data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
 
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, modified_headers, payload)
-            async with session.post(url, headers=modified_headers, data=payload) as response:
-                text = await response.text()
-                data = json.loads(text)
-                self.log_response(url, data)
-               
         user = data['data']['userData']['user']
         return user
 
@@ -470,15 +508,7 @@ class ThreadsAPI:
                     'doc_id': '6232751443445612'
                 }
             
-            async with aiohttp.ClientSession() as session:
-                self.log_request('POST', url, modified_headers, payload)
-                async with session.post(url, headers=modified_headers, data=payload) as response:
-                    try:
-                        text = await response.text()
-                        data = json.loads(text)
-                        self.log_response(url, data)
-                    except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                        raise Exception('Failed to decode response as JSON')
+            data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
 
             threads = data['data']['mediaData']['threads']
             return threads
@@ -529,31 +559,124 @@ class ThreadsAPI:
                     'doc_id': '6307072669391286'
                 }
 
-            async with aiohttp.ClientSession() as session:
-                self.log_request('POST', url, modified_headers, payload)
-                async with session.post(url, headers=modified_headers, data=payload) as response:
-                    try:
-                        text = await response.text()
-                        data = json.loads(text)
-                        self.log_response(url, data)
-                    except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                        raise Exception('Failed to decode response as JSON')
+            data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
 
             threads = data['data']['mediaData']['threads']
             return threads
+    
+    async def get_post_id_from_url(self, post_url):
+        """
+        Retrieves the post ID from a given URL.
 
-    async def get_user_followers(self, user_id: str) -> bool:
-        if not self.is_logged_in:
-            raise Exception("The action 'get_user_followers' can only be perfomed while logged-in")
+        Args:
+            post_url (str): The URL of the post.
+        Returns:
+            str: The post ID if found, or None if the post ID is not found.
+
+        Raises:
+            Exception: If an error occurs during the post ID retrieval process.
+        """        
+        if "https://" in post_url and "/@" in post_url:
+            raise Exception(f"Argument {post_url} is not a valid URL")
+        elif "https://" in post_url and "/t" in post_url:
+            shortcode = post_url.split("/t/")[-1].split("/")[0]
+        elif len(post_url) == 11:
+            shortcode = post_url
+        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        id = 0
+        for char in shortcode:
+            id = (id * 64) + alphabet.index(char)
+        return str(id)
+
+    async def get_post(self, post_id: str):
+        """
+        Retrieves the post information for a given post ID.
+
+        Args:
+            post_id (str): The ID of the post.
+
+        Returns:
+            dict: A dictionary representing the post information.
+
+        Raises:
+            Exception: If an error occurs during the post retrieval process.
+        """
+        url = 'https://www.threads.net/api/graphql'
         
-        res = await self.__auth_required_get_request(f"{BASE_URL}/friendships/{user_id}/followers")
+        modified_headers = copy.deepcopy(await self._get_public_headers())
+
+        modified_headers.update({
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+            'x-fb-friendly-name': 'BarcelonaPostPageQuery',
+            'x-fb-lsd': self.FBLSDToken,
+        })
+        
+        payload = {
+                'lsd': self.FBLSDToken,
+                'variables': json.dumps(
+                    {
+                        'postID': post_id,
+                    }
+                ),
+                'doc_id': '5587632691339264',
+            }
+
+        data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
+
+        threads = data['data']['data']
+        return threads
+    
+    async def get_post_likes(self, post_id:int):
+        """
+        Retrieves the likes for a post with the given post ID.
+
+        Args:
+            post_id (int): The ID of the post.
+
+        Returns:
+            list: A list of users who liked the post.
+
+        Raises:
+            Exception: If an error occurs during the post likes retrieval process.
+        """
+        url = 'https://www.threads.net/api/graphql'
+        
+        modified_headers = copy.deepcopy(await self._get_public_headers())
+
+        modified_headers.update({
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+            'x-fb-friendly-name': 'BarcelonaPostPageQuery',
+            'x-fb-lsd': self.FBLSDToken,
+        })
+
+        payload = {
+                'lsd': self.FBLSDToken,
+                'variables': json.dumps(
+                    {
+                        'mediaID': post_id,
+                    }
+                ),
+                'doc_id': '9360915773983802',
+            }
+
+        data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
+
+        return data['data']['likers']['users']
+
+    @require_login
+    async def get_user_followers(self, user_id: str) -> bool:
+        res = await self._private_post(f"{BASE_URL}/friendships/{user_id}/followers", headers=self.auth_headers)
         return res
 
+    @require_login
     async def get_user_following(self, user_id: str) -> bool:
-        if not self.is_logged_in:
-            raise Exception("The action 'get_user_following' can only be perfomed while logged-in")
-        
-        res = await self.__auth_required_get_request(f"{BASE_URL}/friendships/{user_id}/following")
+        res = await self._private_post(f"{BASE_URL}/friendships/{user_id}/following", headers=self.auth_headers)
         return res
 
     @require_login
@@ -641,127 +764,6 @@ class ThreadsAPI:
         res = await self._private_post(url=f"{BASE_URL}/media/{post_id}_{self.user_id}/delete/?media_type=TEXT_POST", headers=self.auth_headers)
         return res["status"] == "ok"
     
-    async def get_post_id_from_url(self, post_url):
-        """
-        Retrieves the post ID from a given URL.
-
-        Args:
-            post_url (str): The URL of the post.
-        Returns:
-            str: The post ID if found, or None if the post ID is not found.
-
-        Raises:
-            Exception: If an error occurs during the post ID retrieval process.
-        """        
-        if "https://" in post_url and "/@" in post_url:
-            raise Exception(f"Argument {post_url} is not a valid URL")
-        elif "https://" in post_url and "/t" in post_url:
-            shortcode = post_url.split("/t/")[-1].split("/")[0]
-        elif len(post_url) == 11:
-            shortcode = post_url
-        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-        id = 0
-        for char in shortcode:
-            id = (id * 64) + alphabet.index(char)
-        return str(id)
-
-    async def get_post(self, post_id: str):
-        """
-        Retrieves the post information for a given post ID.
-
-        Args:
-            post_id (str): The ID of the post.
-
-        Returns:
-            dict: A dictionary representing the post information.
-
-        Raises:
-            Exception: If an error occurs during the post retrieval process.
-        """
-        url = 'https://www.threads.net/api/graphql'
-        
-        modified_headers = copy.deepcopy(await self._get_public_headers())
-
-        modified_headers.update({
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'x-fb-friendly-name': 'BarcelonaPostPageQuery',
-            'x-fb-lsd': self.FBLSDToken,
-        })
-        
-        payload = {
-                'lsd': self.FBLSDToken,
-                'variables': json.dumps(
-                    {
-                        'postID': post_id,
-                    }
-                ),
-                'doc_id': '5587632691339264',
-            }
-
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, modified_headers, payload)
-            async with session.post(url, headers=modified_headers, data=payload) as response:
-                try:
-                    text = await response.text()
-                    data = json.loads(text)
-                    self.log_response(url, data)
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    raise Exception('Failed to decode response as JSON')
-
-        threads = data['data']['data']
-        return threads
-    
-    async def get_post_likes(self, post_id:int):
-        """
-        Retrieves the likes for a post with the given post ID.
-
-        Args:
-            post_id (int): The ID of the post.
-
-        Returns:
-            list: A list of users who liked the post.
-
-        Raises:
-            Exception: If an error occurs during the post likes retrieval process.
-        """
-        url = 'https://www.threads.net/api/graphql'
-        
-        modified_headers = copy.deepcopy(await self._get_public_headers())
-
-        modified_headers.update({
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'x-fb-friendly-name': 'BarcelonaPostPageQuery',
-            'x-fb-lsd': self.FBLSDToken,
-        })
-
-        payload = {
-                'lsd': self.FBLSDToken,
-                'variables': json.dumps(
-                    {
-                        'mediaID': post_id,
-                    }
-                ),
-                'doc_id': '9360915773983802',
-            }
-
-        async with aiohttp.ClientSession() as session:
-            self.log_request('POST', url, modified_headers, payload)
-            async with session.post(url, headers=modified_headers, data=payload) as response:
-                try:
-                    text = await response.text()
-                    data = json.loads(text)
-                    self.log_response(url, data)
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    raise Exception('Failed to decode response as JSON')
-
-        return data['data']['likers']['users']
-
     @require_login
     async def get_timeline(self, maxID=None):
         """
@@ -978,90 +980,78 @@ class ThreadsAPI:
                 headers["Authorization"] = f"Bearer IGT:2:{self.token}"
             return headers
 
-        async def __is_valid_url(url: str) -> bool:
-            url_pattern = re.compile(
-                r"^(https?://)?"
-                r"((([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])\.)+[a-zA-Z]{2,})"
-                r"(/?|/[-a-zA-Z0-9_%+.~!@#$^&*(){}[\]|/\\<>]*)$"
-            )
-            if re.match(url_pattern, url) is not None:
-                try:
-                    async with self._auth_session.head(url) as response:
-                        return response.status == 200
-                except aiohttp.ClientError:
-                    return False
-            return False
-
-        async def __download(url: str) -> bytes:
-            try:
-                async with self._auth_session.get(url) as response:
-                    response.raise_for_status()
-                    return await response.read()
-            except aiohttp.ClientError as e:
-                raise Exception("[ERROR] failed to load file: ", e)
-
-        async def __upload_image(image_url: str, image_content: bytes) -> str:
-            headers = __get_app_headers().copy()
-
+        async def _upload_image(path: str) -> dict:
+            random_number = random.randint(1000000000, 9999999999)
             upload_id = int(time.time() * 1000)
-            name = f"{upload_id}_0_{random.randint(1000000000, 9999999999)}"
-            url = "https://www.instagram.com/rupload_igphoto/" + name
-            mime_type = None
-            if image_content is None:
-                with open(image_url, mode="rb") as f:
-                    content = f.read()
-                mime_type, _ = mimetypes.guess_type(image_url)
-            else:
-                content = image_content
-                async with self._auth_session.head(image_url) as response:
-                    content_type = response.headers.get("Content-Type")
-                    if not content_type:
-                        file_name = url.split("/")[-1]
-                        mime_type, _ = mimetypes.guess_type(file_name)
-                    if mime_type is None:
-                        mime_type = "jpeg"
+            upload_name = f'{upload_id}_0_{random_number}'
 
-            x_instagram_rupload_params = {
-                "upload_id": f"{upload_id}",
-                "media_type": "1",
-                "sticker_burnin_params": "[]",
-                "image_compression": json.dumps(
-                    {"lib_name": "moz", "lib_version": "3.1.m", "quality": "80"}
+            file_data = None
+            file_length = None
+            mime_type = 'image/jpeg'
+            waterfall_id = str(uuid.uuid4())
+
+            is_url = path.startswith('http')
+            is_file_path = not path.startswith('http')
+
+            if is_file_path:
+                with open(path, 'rb') as file:
+                    file_data = file.read()
+                    file_length = len(file_data)
+
+            mime_type = mimetypes.guess_type(path)[0]
+
+            if is_url:
+                response = await self._public_session.download(url=path)
+
+                file_data = response
+                file_length = len(response)
+
+            if not is_file_path and not is_url:
+                raise ValueError('Provided image URL neither HTTP(S) URL nor file path. Please, create GitHub issue')
+
+            if file_data is None and file_length is None:
+                raise ValueError('Provided image could not be uploaded. Please, create GitHub issue')
+
+            parameters_as_string = {
+                'media_type': 1,
+                'upload_id': str(upload_id),
+                'sticker_burnin_params': json.dumps([]),
+                'image_compression': json.dumps(
+                    {
+                        'lib_name': 'moz',
+                        'lib_version': '3.1.m',
+                        'quality': '80',
+                    },
                 ),
-                "xsharing_user_ids": "[]",
-                "retry_context": {
-                    "num_step_auto_retry": "0",
-                    "num_reupload": "0",
-                    "num_step_manual_retry": "0",
-                },
-                "IG-FB-Xpost-entry-point-v2": "feed",
-            }
-            content_length = len(content)
-            if mime_type.startswith("image/"):
-                mime_type = mime_type.replace("image/", "")
-            image_headers = {
-                "X_FB_PHOTO_WATERFALL_ID": str(uuid.uuid4()),
-                "X-Entity-Type": "image/" + mime_type,
-                "Offset": "0",
-                "X-Instagram-Rupload-Params": json.dumps(x_instagram_rupload_params),
-                "X-Entity-Name": f"{name}",
-                "X-Entity-Length": f"{content_length}",
-                "Content-Type": "application/octet-stream",
-                "Content-Length": f"{content_length}",
-                "Accept-Encoding": "gzip",
+                'xsharing_user_ids': json.dumps([]),
+                'retry_context': json.dumps(
+                    {
+                        'num_step_auto_retry': '0',
+                        'num_reupload': '0',
+                        'num_step_manual_retry': '0',
+                    },
+                ),
+                'IG-FB-Xpost-entry-point-v2': 'feed',
             }
 
-            headers.update(image_headers)
+            headers = self.auth_headers | {
+                'Accept-Encoding': 'gzip',
+                'X-Instagram-Rupload-Params': json.dumps(parameters_as_string),
+                'X_FB_PHOTO_WATERFALL_ID': waterfall_id,
+                'X-Entity-Type': mime_type,
+                'Offset': '0',
+                'X-Entity-Name': upload_name,
+                'X-Entity-Length': str(file_length),
+                'Content-Type': 'application/octet-stream',
+                'Content-Length': str(file_length),
+            }
 
-            response = await self._private_post(url=url, headers=headers,data=content)
+            response = await self._private_post(url="https://www.instagram.com/rupload_igphoto/" + upload_name, headers=headers,data=file_data)
             
             if response['status'] == 'ok':
                 return response
             else:
                 raise Exception("Failed to upload image")
-
-        if not self.is_logged_in:
-            raise Exception("You need to login before posting")
         
         now = datetime.now()
         
@@ -1077,26 +1067,22 @@ class ThreadsAPI:
         }
 
         post_url = POST_URL_TEXTONLY
-        if image_path is not None:
-            post_url = POST_URL_IMAGE
-            image_content = None
-            if not (os.path.isfile(image_path) and os.path.exists(image_path)):
-                if not __is_valid_url(image_path):
-                    return False
-                else:
-                    image_content = await __download(image_path)
-            upload_id = await __upload_image(image_url=image_path, image_content=image_content)
+        if image_path is not None and url is None:
+            post_url = POST_URL_IMAGE           
+            upload_id = await _upload_image(path=image_path)
             if upload_id is None:
                 return False
             params["upload_id"] = upload_id["upload_id"]
             params["scene_capture_type"] = ""
         elif url is not None:
             params["text_post_app_info"]["link_attachment_url"] = url
+        
         if image_path is None:
             params["publish_mode"] = "text_post"
 
         if parent_post_id is not None:
             params["text_post_app_info"]["reply_id"] = parent_post_id
+
         params = json.dumps(params)
         payload = f"signed_body=SIGNATURE.{urllib.parse.quote(params)}"
         headers = __get_app_headers().copy()
