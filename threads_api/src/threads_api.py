@@ -13,7 +13,6 @@ import os
 import mimetypes
 import uuid
 import time
-import traceback
 import copy
 
 import secrets
@@ -24,8 +23,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from instagrapi import Client
-
 import logging
 import sys
 from threads_api.src.anotherlogger import format_log
@@ -33,7 +30,6 @@ from threads_api.src.anotherlogger import log_debug
 from colorama import init, Fore, Style
 import functools
 from threads_api.src.settings import Settings
-import requests
 
 from threads_api.src.http_sessions.aiohttp_session import AioHTTPSession
 
