@@ -598,33 +598,37 @@ class ThreadsAPI:
         Raises:
             Exception: If an error occurs during the post retrieval process.
         """
-        url = 'https://www.threads.net/api/graphql'
         
-        modified_headers = copy.deepcopy(await self._get_public_headers())
+        if self.is_logged_in:
+            response = await self._private_get(url=f'{BASE_URL}/text_feed/{post_id}/replies', headers=self.auth_headers)
+        else:
+            url = 'https://www.threads.net/api/graphql'
+            
+            modified_headers = copy.deepcopy(await self._get_public_headers())
 
-        modified_headers.update({
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'x-fb-friendly-name': 'BarcelonaPostPageQuery',
-            'x-fb-lsd': self.FBLSDToken,
-        })
-        
-        payload = {
-                'lsd': self.FBLSDToken,
-                'variables': json.dumps(
-                    {
-                        'postID': post_id,
-                    }
-                ),
-                'doc_id': '5587632691339264',
-            }
+            modified_headers.update({
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'same-origin',
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+                'x-fb-friendly-name': 'BarcelonaPostPageQuery',
+                'x-fb-lsd': self.FBLSDToken,
+            })
+            
+            payload = {
+                    'lsd': self.FBLSDToken,
+                    'variables': json.dumps(
+                        {
+                            'postID': post_id,
+                        }
+                    ),
+                    'doc_id': '5587632691339264',
+                }
 
-        data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
+            data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
 
-        threads = data['data']['data']
-        return threads
+            response = data['data']['data']
+        return response
     
     async def get_post_likes(self, post_id:int):
         """

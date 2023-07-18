@@ -34,6 +34,8 @@ async def get_user_threads():
             print(f"{username}'s Post: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
     else:
         print(f"User ID not found for username '{username}'")
+    
+    await api.close_gracefully()
 
 # Asynchronously gets the replies for a user
 async def get_user_replies():

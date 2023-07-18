@@ -186,13 +186,18 @@ pip install -r requirements.txt
   - [x] ✅  GitHub Actions Pipeline
 
 ## Usage Examples
-View [example.py](https://github.com/Danie1/threads-api/blob/main/example.py) for code examples. 
+View [examples/public_api_examples.py](https://github.com/Danie1/threads-api/blob/main/examples/public_api_examples.py) for Public API code examples. For the Private API usage (requires login), head over to [examples/private_api_examples.py](https://github.com/Danie1/threads-api/blob/main/examples/private_api_examples.py)
+
 At the end of the file you will be able to uncomment and run the individual examples with ease.
 
 Then simply run as:
 ```
+python3 examples/public_api_examples.py
+
+# or
+
 # Pass the credentials as environment variables
-USERNAME=<Instagram Username> PASSWORD=<Instagram Password> python3 example.py
+USERNAME=<Instagram Username> PASSWORD=<Instagram Password> python3 examples/private_api_examples.py
 ```
 
 ### Samples
@@ -456,12 +461,12 @@ Post has been successfully posted
 </details>
 
 ## 📌 Roadmap
-- [ ] 🚧 Read feed, notifications
+- [ ] 🚧 Upload multiple images at once to a post
 - [ ] 🚧 Post text and share a video
+- [ ] 🚧 Implement all public API functions with private API, including pagination
 - [ ] 🚧 Documentation Improvements
 - [ ] 🚧 CI/CD Improvements
-  - [ ] 🚧 Add coverage Pytest
-
+  - [ ] 🚧 Add coverage Pytest + Widget to README
 
 # License
 This project is licensed under the MIT license.
