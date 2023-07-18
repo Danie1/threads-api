@@ -187,7 +187,7 @@ class ThreadsAPI:
         resp_json = self._extract_response_json(response)
         log_debug(title='PRIVATE RESPONSE', response=resp_json)
         
-        if resp_json['status'] == 'fail':
+        if 'status' in resp_json and resp_json['status'] == 'fail':
             raise Exception(f"Request Failed: [{resp_json['message']}]")
         
         return resp_json
@@ -199,7 +199,7 @@ class ThreadsAPI:
         resp_json = self._extract_response_json(response)
         log_debug(title='PRIVATE RESPONSE', response=resp_json)
         
-        if resp_json['status'] == 'fail':
+        if 'status' in resp_json and resp_json['status'] == 'fail':
             raise Exception(f"Request Failed: [{resp_json['message']}]")
         
         return resp_json
@@ -210,7 +210,7 @@ class ThreadsAPI:
         resp_json = self._extract_response_json(response)
         log_debug(title='PUBLIC RESPONSE', response=resp_json)
         
-        if resp_json['status'] == 'fail':
+        if 'status' in resp_json and resp_json['status'] == 'fail':
             raise Exception(f"Request Failed: [{resp_json['message']}]")
         
         return resp_json
@@ -221,7 +221,7 @@ class ThreadsAPI:
         resp_json = self._extract_response_json(response)
         log_debug(title='PUBLIC RESPONSE', response=resp_json)
         
-        if resp_json['status'] == 'fail':
+        if 'status' in resp_json and resp_json['status'] == 'fail':
             raise Exception(f"Request Failed: [{resp_json['message']}]")
         
         return resp_json
@@ -351,7 +351,7 @@ class ThreadsAPI:
             except LoggedOutException as e:
                 print(f"[Error] {e}. Attempting to re-login.")
                 pass
-
+        
         try:
             self.logger.info("Attempting to login")
             self._auth_session = self.http_session_class()
