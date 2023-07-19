@@ -117,6 +117,19 @@ test = ["pytest (>=6.2.0)", "pytest-benchmark", "pytest-cov", "pytest-xdist", "p
 test-randomorder = ["pytest-randomly"]
 
 [[package]]
+name = "flake8"
+version = "6.0.0"
+description = "the modular source code checker: pep8 pyflakes and co"
+category = "main"
+optional = false
+python-versions = ">=3.8.1"
+
+[package.dependencies]
+mccabe = ">=0.7.0,<0.8.0"
+pycodestyle = ">=2.10.0,<2.11.0"
+pyflakes = ">=3.0.0,<3.1.0"
+
+[[package]]
 name = "frozenlist"
 version = "1.3.3"
 description = "A list-like structure which implements collections.abc.MutableSequence"
@@ -153,6 +166,14 @@ pycryptodomex = "3.18.0"
 pydantic = "1.10.9"
 PySocks = "1.7.1"
 requests = ">=2.25.1,<3.0"
+
+[[package]]
+name = "mccabe"
+version = "0.7.0"
+description = "McCabe checker, plugin for flake8"
+category = "main"
+optional = false
+python-versions = ">=3.6"
 
 [[package]]
 name = "multidict"
@@ -203,6 +224,14 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
+name = "pycodestyle"
+version = "2.10.0"
+description = "Python style guide checker"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[[package]]
 name = "pycparser"
 version = "2.21"
 description = "C parser in Python"
@@ -232,6 +261,14 @@ typing-extensions = ">=4.2.0"
 [package.extras]
 dotenv = ["python-dotenv (>=0.10.4)"]
 email = ["email-validator (>=1.0.3)"]
+
+[[package]]
+name = "pyflakes"
+version = "3.0.1"
+description = "passive checker of Python programs"
+category = "main"
+optional = false
+python-versions = ">=3.6"
 
 [[package]]
 name = "pysocks"
@@ -289,6 +326,14 @@ pytest = ">=5.0"
 
 [package.extras]
 dev = ["pre-commit", "tox", "pytest-asyncio"]
+
+[[package]]
+name = "pytz"
+version = "2023.3"
+description = "World timezone definitions, modern and historical"
+category = "main"
+optional = false
+python-versions = "*"
 
 [[package]]
 name = "requests"
@@ -353,7 +398,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8.1"
-content-hash = "61bc4a87e87f43e318c93de58c89656a0e3ba03a112996c7ea2460c249457648"
+content-hash = "2432f960fd8053eefdb20a3bac128f2b5655d1757557501d178f790debc174c4"
 
 [metadata.files]
 aiohttp = []
@@ -366,22 +411,27 @@ cffi = []
 charset-normalizer = []
 colorama = []
 cryptography = []
+flake8 = []
 frozenlist = []
 idna = []
 iniconfig = []
 instagrapi = []
+mccabe = []
 multidict = []
 packaging = []
 pillow = []
 pluggy = []
 py = []
+pycodestyle = []
 pycparser = []
 pycryptodomex = []
 pydantic = []
+pyflakes = []
 pysocks = []
 pytest = []
 pytest-asyncio = []
 pytest-mock = []
+pytz = []
 requests = []
 toml = []
 typing-extensions = []
