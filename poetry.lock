@@ -277,6 +277,20 @@ pytest = ">=5.4.0"
 testing = ["coverage", "hypothesis (>=5.7.1)"]
 
 [[package]]
+name = "pytest-mock"
+version = "3.11.1"
+description = "Thin-wrapper around the mock package for easier use with pytest"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+pytest = ">=5.0"
+
+[package.extras]
+dev = ["pre-commit", "tox", "pytest-asyncio"]
+
+[[package]]
 name = "requests"
 version = "2.31.0"
 description = "Python HTTP for Humans."
@@ -339,7 +353,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8.1"
-content-hash = "15275934f4db02f18c9310a618d1ddafecd5da4eec748664542d50791062a89d"
+content-hash = "61bc4a87e87f43e318c93de58c89656a0e3ba03a112996c7ea2460c249457648"
 
 [metadata.files]
 aiohttp = []
@@ -367,6 +381,7 @@ pydantic = []
 pysocks = []
 pytest = []
 pytest-asyncio = []
+pytest-mock = []
 requests = []
 toml = []
 typing-extensions = []
