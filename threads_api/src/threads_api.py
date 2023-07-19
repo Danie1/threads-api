@@ -144,7 +144,7 @@ class ThreadsAPI:
         self._public_session = self.http_session_class()
 
         # Setup private connection members
-        self._auth_session = None
+        self._auth_session = self.http_session_class()
         self.token = None
         self.user_id = None
         self.is_logged_in = False
@@ -345,7 +345,6 @@ class ThreadsAPI:
         if cached_token_path is not None and os.path.exists(cached_token_path):
             self.logger.info(f"Found cache file in {cached_token_path}, attempting to read the token from it.")
             try:
-                self._auth_session = self.http_session_class()
                 await _set_logged_in_state(username, _get_token_from_cache(cached_token_path, password))
                 return True
             except LoggedOutException as e:
@@ -354,8 +353,6 @@ class ThreadsAPI:
         
         try:
             self.logger.info("Attempting to login")
-            self._auth_session = self.http_session_class()
-
             token = self._auth_session.auth(username=username, password=password)
             
             await _set_logged_in_state(username, token)
@@ -992,13 +989,13 @@ class ThreadsAPI:
     
     @require_login
     async def post(
-        self, caption: str, image_path: str = None, url: str = None, parent_post_id: str = None, quoted_post_id: str = None) -> bool:
+        self, caption: str, image_path = None, url: str = None, parent_post_id: str = None, quoted_post_id: str = None) -> bool:
         """
         Creates a new post with the given caption, image, URL, and parent post ID.
 
         Args:
             caption (str): The caption of the post.
-            image_path (str, optional): The path to the image file to be posted. Defaults to None.
+            image_path (str or list, optional: The path to the image file to be posted or list of images paths. Defaults to None.
             url (str, optional): The URL to be attached to the post. Defaults to None.
             parent_post_id (str, optional): The ID of the parent post if this post is a reply. Defaults to None.
 
@@ -1017,9 +1014,12 @@ class ThreadsAPI:
                 headers["Authorization"] = f"Bearer IGT:2:{self.token}"
             return headers
 
+        def generate_next_upload_id():
+            return int(time.time() * 1000)
+
         async def _upload_image(path: str) -> dict:
             random_number = random.randint(1000000000, 9999999999)
-            upload_id = int(time.time() * 1000)
+            upload_id = generate_next_upload_id()
             upload_name = f'{upload_id}_0_{random_number}'
 
             file_data = None
@@ -1105,12 +1105,31 @@ class ThreadsAPI:
 
         post_url = POST_URL_TEXTONLY
         if image_path is not None and url is None:
-            post_url = POST_URL_IMAGE           
-            upload_id = await _upload_image(path=image_path)
-            if upload_id is None:
-                return False
-            params["upload_id"] = upload_id["upload_id"]
-            params["scene_capture_type"] = ""
+            if isinstance(image_path, list):
+                if len(image_path) < 2:
+                    raise Exception("Error: You must specify at least 2 image paths in `image_path` argument")
+
+            if isinstance(image_path, str):
+                post_url = POST_URL_IMAGE           
+                upload_id = await _upload_image(path=image_path)
+                if upload_id is None:
+                    return False
+                params["upload_id"] = upload_id["upload_id"]
+                params["scene_capture_type"] = ""
+            elif isinstance(image_path, list):
+                post_url = POST_URL_SIDECAR
+                params['client_sidecar_id'] = generate_next_upload_id()
+                params["children_metadata"] = []
+                for image in image_path:
+                    upload_id = await _upload_image(path=image)
+                    params["children_metadata"] += [{
+                        'upload_id': upload_id["upload_id"],
+                        'source_type': '4',
+                        'timezone_offset': str(self.settings.timezone_offset),
+                        'scene_capture_type': "",
+                    }]
+            else:
+                raise Exception(f"The image_path [{image_path}] is invalid.\n{OPEN_ISSUE_MESSAGE}")
         elif url is not None:
             params["text_post_app_info"]["link_attachment_url"] = url
         
