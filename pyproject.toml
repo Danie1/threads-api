@@ -16,7 +16,6 @@ instagrapi = "^1.17.13"
 pillow = "^10.0.0"
 colorama = "^0.4.6"
 pytest-mock = "^3.11.1"
-aioresponses = "^0.7.4"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
