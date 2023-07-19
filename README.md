@@ -18,8 +18,6 @@ It allows you to configure the session object. Choose between:
 * `instagrapi` - utilize the same connection all the way for private api
 * (Advanced) Implement your own and call ThreadsAPI like this: `ThreadsAPI(http_session_class=YourOwnHTTPSessionImpl)`
 
-> **Note** Since v1.1.3 we are using ```instagrapi``` package to login.
-
 > **Note** Since v1.1.10 you can use `requests` or `instagrapi` as HTTP clients, not just `aiohttp`.
 
 > **Note** Since v1.1.12 a `.session.json` file will be created by-default to save default settings (to reduce risk of being flagged). You can disable it by passing `ThreadsAPI(settings_path=None)`
@@ -149,15 +147,16 @@ source env/bin/activate # Unix/MacOS
 pip install -r requirements.txt
 ```
 
-
 # Supported Features
 - [x] ✅ Login functionality, including 2FA 🔒
   - [x] ✅ Cache login token securely (reduce login requests / due to restrictive limits)
+  - [x] ✅ Saves settings locally, such as device information and timezone to use along your sessions
 - [x] ✅ Read recommended posts from timeline (Requires Login 🔒)
 - [x] ✅ Write Posts (Requires Login 🔒)
   - [x] ✅ Posts with just text
   - [x] ✅ Posts and quote another post
   - [x] ✅ Posts with text and an image
+  - [x] ✅ Posts with text and multiple images
   - [x] ✅ Posts with text that shares a url
   - [x] ✅ Repost a post
   - [x] ✅ Reply to Posts
@@ -174,6 +173,11 @@ pip install -r requirements.txt
   - [x] ✅ Unrestrict User
   - [x] ✅ Mute User
   - [x] ✅ Unmute User
+  - [x] ✅ Search for users
+  - [x] ✅ Get Recommended Users
+  - [x] ✅ Get Notifications (`replies` / `mentions` / `verified`)
+  - [x] ✅ Read a user's followers list
+  - [x] ✅ Read a user's following list
 - [x] ✅ Read Public Data
   - [x] ✅ Read a user_id (eg. `314216`) via username(eg. `zuck`)
   - [x] ✅ Read a user's profile info
@@ -181,11 +185,12 @@ pip install -r requirements.txt
   - [x] ✅ Read list of a user's Replies
   - [x] ✅ Read Post and a list of its Replies
   - [x] ✅ View who liked a post
-- [x] ✅ Read Private Data (Requires Login 🔒)
-  - [x] ✅ Read a user's followers list
-  - [x] ✅ Read a user's following list
 - [x] ✅  CI/CD
   - [x] ✅  GitHub Actions Pipeline
+- [x] ✅  HTTP Clients
+  - [x] ✅  AioHTTP
+  - [x] ✅  Requests
+  - [x] ✅  Instagrapi
 
 ## Usage Examples
 View [examples/public_api_examples.py](https://github.com/Danie1/threads-api/blob/main/examples/public_api_examples.py) for Public API code examples. For the Private API usage (requires login), head over to [examples/private_api_examples.py](https://github.com/Danie1/threads-api/blob/main/examples/private_api_examples.py)
@@ -469,7 +474,6 @@ Post has been successfully posted
 </details>
 
 ## 📌 Roadmap
-- [ ] 🚧 Upload multiple images at once to a post
 - [ ] 🚧 Post text and share a video
 - [ ] 🚧 Implement all public API functions with private API, including pagination
 - [ ] 🚧 Documentation Improvements

@@ -510,7 +510,7 @@ class ThreadsAPI:
             threads = data['data']['mediaData']['threads']
             return threads
     
-    async def get_user_replies(self, user_id: str, count=10, max_id=None):
+    async def get_user_replies(self, user_id: str, count=10, max_id : str = None):
         """
         Retrieves the replies associated with a user with the provided user ID.
 
@@ -561,7 +561,7 @@ class ThreadsAPI:
             threads = data['data']['mediaData']['threads']
             return threads
     
-    async def get_post_id_from_url(self, post_url):
+    async def get_post_id_from_url(self, post_url : str):
         """
         Retrieves the post ID from a given URL.
 
@@ -634,12 +634,12 @@ class ThreadsAPI:
             response = data['data']['data']
         return response
     
-    async def get_post_likes(self, post_id:int):
+    async def get_post_likes(self, post_id:str):
         """
         Retrieves the likes for a post with the given post ID.
 
         Args:
-            post_id (int): The ID of the post.
+            post_id (str): The ID of the post.
 
         Returns:
             list: A list of users who liked the post.
@@ -679,7 +679,7 @@ class ThreadsAPI:
         return response
 
     @require_login
-    async def repost(self, post_id):
+    async def repost(self, post_id : str):
         """
         Repost a post.
 
@@ -692,7 +692,7 @@ class ThreadsAPI:
         return await self._private_post(url=f'{BASE_URL}/repost/create_repost/', headers=self.auth_headers, data=f'media_id={post_id}')
 
     @require_login
-    async def delete_repost(self, post_id):
+    async def delete_repost(self, post_id:str):
         """
         Delete a repost.
 
@@ -800,7 +800,7 @@ class ThreadsAPI:
         return res["status"] == "ok"
     
     @require_login
-    async def get_timeline(self, maxID=None):
+    async def get_timeline(self, maxID : str = None):
         """
         Get timeline for the authenticated user
 
@@ -828,7 +828,7 @@ class ThreadsAPI:
         return res
 
     @require_login
-    async def mute_user(self, user_id):
+    async def mute_user(self, user_id : str):
         """
         Mute a user
 
@@ -855,7 +855,7 @@ class ThreadsAPI:
         return res
 
     @require_login
-    async def unmute_user(self, user_id):
+    async def unmute_user(self, user_id : str):
         """
         Unmute a user
 
@@ -882,7 +882,7 @@ class ThreadsAPI:
         return res
     
     @require_login
-    async def restrict_user(self, user_id):
+    async def restrict_user(self, user_id : str):
         """
         Restrict a user
 
@@ -909,7 +909,7 @@ class ThreadsAPI:
         return res
     
     @require_login
-    async def unrestrict_user(self, user_id):
+    async def unrestrict_user(self, user_id : str):
         """
         Unrestrict a user
 
@@ -935,7 +935,7 @@ class ThreadsAPI:
         return res
     
     @require_login
-    async def block_user(self, user_id):
+    async def block_user(self, user_id : str):
         """
         Block a user
 
@@ -962,7 +962,7 @@ class ThreadsAPI:
         return res
     
     @require_login
-    async def unblock_user(self, user_id):
+    async def unblock_user(self, user_id : str):
         """
         Unblock a user
 
@@ -985,6 +985,76 @@ class ThreadsAPI:
         encoded_parameters = urllib.parse.quote(string=parameters, safe="!~*'()")
         payload = f'signed_body=SIGNATURE.{encoded_parameters}'
         res = await self._private_post(url=f'{BASE_URL}/friendships/unblock/{user_id}/', headers=self.auth_headers, data=payload)
+        return res
+    
+    @require_login
+    async def search_user(self, query : str):
+        """
+        Search for a user
+
+        Args:
+            query (str): search query
+
+        Returns:
+            dict: REST API Response in JSON format
+
+        Raises:
+            Exception: If an error occurs during the search process.
+        """
+        res = await self._private_get(url=f'{BASE_URL}/users/search/?q={query}', headers=self.auth_headers)
+        return res
+    
+    @require_login
+    async def get_recommended_users(self, max_id : str = None):
+        """
+        Get list of recommended users
+
+        Args:
+        max_id (str) : the next page of recommended users
+        #TODO This argument may not work. Still looking into this. Please open a Github Issue if you found a solution.
+
+        Returns:
+            dict: REST API Response in JSON format
+
+        Raises:
+            Exception: If an error occurs during the search process.
+        """
+        max_id = f"?max_id={max_id}" if max_id else ""
+        res = await self._private_get(url=f'{BASE_URL}/text_feed/recommended_users/{max_id}', headers=self.auth_headers)
+        return res
+    
+    @require_login
+    async def get_notifications(self, selected_filter : str ="text_post_app_replies", max_id : str = None, pagination_first_record_timestamp:str = None):
+        """
+        Get list of recommended users
+
+        Args:
+        selected_filter (str): Choose one: "text_post_app_mentions", "text_post_app_replies", "verified"
+
+        max_id (str) : the next page of get notifications
+        #TODO This argument may not work. Still looking into this. Please open a Github Issue if you found a solution.
+
+        pagination_first_record_timestamp (str) : Timestamp of the first record for pagination
+        #TODO This argument may not work. Still looking into this. Please open a Github Issue if you found a solution.
+
+        Returns:
+            dict: REST API Response in JSON format
+
+        Raises:
+            Exception: If an error occurs during the search process.
+        """
+        params = {'feed_type' : 'all',
+                  'mark_as_seen' : False,
+                  'timezone_offset':str(self.settings.timezone_offset)
+        }
+
+        if selected_filter:
+            params.update({'selected_filter': selected_filter})
+        
+        if max_id:
+            params.update({'max_id': max_id, 'pagination_first_record_timestamp': pagination_first_record_timestamp})
+        
+        res = await self._private_get(url=f'{BASE_URL}/text_feed/text_app_notifications/', headers=self.auth_headers, data=params)
         return res
     
     @require_login

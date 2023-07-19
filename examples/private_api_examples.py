@@ -61,8 +61,6 @@ async def post_include_image(api):
     else:
         print("Unable to post.")
     
-    
-
 # Asynchronously posts a message with an image
 async def post_include_image_from_url(api):
     result = await api.post("Hello World with an image!", image_path="https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png")
@@ -71,7 +69,17 @@ async def post_include_image_from_url(api):
         print("Post has been successfully posted")
     else:
         print("Unable to post.")
-    
+
+# Asynchronously posts a message with an image
+async def post_include_multiple_images(api):
+    result = await api.post("Hello World with an image!", image_path=[".github/logo.jpg", 
+                                                                      "https://upload.wikimedia.org/wikipedia/commons/b/b5/Baby.tux.sit-black-800x800.png", 
+                                                                      "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png"])
+
+    if result:
+        print("Post has been successfully posted")
+    else:
+        print("Unable to post.")
     
 
 # Asynchronously posts a message with a URL
@@ -84,8 +92,6 @@ async def post_include_url(api):
     else:
         print("Unable to post.")
     
-    
-
 # Asynchronously follows a user
 async def follow_user(api):
     username_to_follow = "zuck"
@@ -257,14 +263,39 @@ async def get_post_likes(api : ThreadsAPI):
     for user_info in likes['users'][:number_of_likes_to_display]:
         print(f'Username: {user_info["username"]} || Full Name: {user_info["full_name"]}')
 
-# Asynchronously gets the likes for a post
+# Asynchronously reposts and deletes the repost
 async def repost_and_delete(api : ThreadsAPI):
     post_url = "https://www.threads.net/t/Cu0BgHESnwF"
 
     post_id = await api.get_post_id_from_url(post_url)
     await api.repost(post_id)
     await api.delete_repost(post_id)
-    
+
+# Asynchronously search users by query
+async def search_user(api : ThreadsAPI):
+    res = await api.search_user(query="zuck")
+
+    index = 1
+    for user in res['users']:
+        print(f"#{index} -> Username:[{user['username']}] Followers: [{user['follower_count']}] Following: [{user['following_count']}]")
+        index += 1
+
+# Asynchronously gets a list of recommended users
+async def get_recommended_users(api : ThreadsAPI):
+    res = await api.get_recommended_users()
+
+    index = 1
+    for user in res['users']:
+        print(f"#{index} -> Username:[{user['username']}] Full Name: [{user['full_name']}] Followers: [{user['follower_count']}]")
+        index += 1
+
+# Asynchronously gets a list of recommended users
+async def get_notifications(api : ThreadsAPI):
+    res = await api.get_notifications()
+
+    print(res)
+
+
 async def main():
     supported_http_session_classes = [AioHTTPSession, RequestsSession, InstagrapiSession]
 
@@ -282,6 +313,7 @@ async def main():
             #await post_and_quote(api) # Post a message and quote another post
             #await post_include_image(api) # Posts a message with an image.
             #await post_include_image_from_url(api) # Posts a message with an image.
+            #await post_include_multiple_images(api) # Post with multiple images
             #await post_include_url(api) # Posts a message with a URL.
             #await follow_user(api) # Follows a user.
             #await unfollow_user(api) # Unfollows a user.
@@ -297,6 +329,9 @@ async def main():
             #await get_post(api) # Retrieves a post and its associated replies.
             #await get_post_likes(api) # Get likers of a post
             #await repost_and_delete(api) # Repost a post and delete it immediately
+            #await search_user(api) # Search for users by query
+            #await get_recommended_users(api) # Get a list of recommended users
+            #await get_notifications(api) # Get a list of notifications
 
         await api.close_gracefully()
      
