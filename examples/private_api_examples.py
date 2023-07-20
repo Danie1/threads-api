@@ -1,12 +1,9 @@
 from threads_api.src.threads_api import ThreadsAPI
 import asyncio
 import os
-import logging
 from threads_api.src.http_sessions.instagrapi_session import InstagrapiSession
 from threads_api.src.http_sessions.requests_session import RequestsSession
 from threads_api.src.http_sessions.aiohttp_session import AioHTTPSession
-
-from threads_api.src.anotherlogger import format_log
 
 # Code example of logging in while storing token encrypted on the file-system
 async def login_with_cache():
@@ -33,9 +30,9 @@ async def login_with_cache():
 # Asynchronously posts a message
 async def post(api):
     result = await api.post("Hello World!")
-
-    if result:
-        print("Post has been successfully posted")
+    
+    if result.media.pk:
+        print(f"Post has been successfully posted with id: [{result.media.pk}]")
     else:
         print("Unable to post.")
 
@@ -46,8 +43,8 @@ async def post_and_quote(api):
 
     result = await api.post("What do you think of this?", quoted_post_id=post_id)
 
-    if result:
-        print("Post has been successfully posted")
+    if result.media.pk:
+        print(f"Post has been successfully posted with id: [{result.media.pk}]")
     else:
         print("Unable to post.")
 
@@ -56,8 +53,8 @@ async def post_and_quote(api):
 async def post_include_image(api):
     result = await api.post("Hello World with an image!", image_path=".github/logo.jpg")
 
-    if result:
-        print("Post has been successfully posted")
+    if result.media.pk:
+        print(f"Post has been successfully posted with id: [{result.media.pk}]")
     else:
         print("Unable to post.")
     
@@ -65,8 +62,8 @@ async def post_include_image(api):
 async def post_include_image_from_url(api):
     result = await api.post("Hello World with an image!", image_path="https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png")
 
-    if result:
-        print("Post has been successfully posted")
+    if result.media.pk:
+        print(f"Post has been successfully posted with id: [{result.media.pk}]")
     else:
         print("Unable to post.")
 
@@ -76,8 +73,8 @@ async def post_include_multiple_images(api):
                                                                       "https://upload.wikimedia.org/wikipedia/commons/b/b5/Baby.tux.sit-black-800x800.png", 
                                                                       "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png"])
 
-    if result:
-        print("Post has been successfully posted")
+    if result.media.pk:
+        print(f"Post has been successfully posted with id: [{result.media.pk}]")
     else:
         print("Unable to post.")
     
@@ -87,8 +84,8 @@ async def post_include_url(api):
     result = False
     result = await api.post("Hello World with a link!", url="https://threads.net")
 
-    if result:
-        print("Post has been successfully posted")
+    if result.media.pk:
+        print(f"Post has been successfully posted with id: [{result.media.pk}]")
     else:
         print("Unable to post.")
     
@@ -184,13 +181,13 @@ async def block_and_unblock_user(api):
     return
 
 async def get_timeline(api):
-    def _print_post(post):
-        caption = post['thread_items'][0]['post']['caption']
+    def _print_post(timeline_item):
+        caption = timeline_item.thread_items[0].post.caption
 
         if caption == None:
             caption = "<Unable to print non-textual posts>"
         else:
-            caption = caption['text']
+            caption = caption.text
         print(f"Post -> Caption: [{caption}]\n")
 
     async def _print_posts_in_feed(next_max_id=None, posts_to_go=0):
@@ -200,11 +197,12 @@ async def get_timeline(api):
             else:
                 resp = await api.get_timeline()
 
-            for post in resp['items'][:resp['num_results']]:
-                _print_post(post)
+            
+            for timeline_item in resp.items[:resp.num_results]:
+                _print_post(timeline_item)
 
-            posts_to_go -= resp['num_results']
-            await _print_posts_in_feed(resp['next_max_id'], posts_to_go)
+            posts_to_go -= resp.num_results
+            await _print_posts_in_feed(resp.next_max_id, posts_to_go)
 
     await _print_posts_in_feed(posts_to_go=20)
 
@@ -216,25 +214,33 @@ async def get_user_threads(api):
     user_id = await api.get_user_id_from_username(username)
 
     if user_id:
-        resp = await api.get_user_threads(user_id)
+        threads = await api.get_user_threads(user_id)
+
         print(f"The threads for user '{username}' are:")
-        for thread in resp['threads']:
-            print(f"{username}'s Post: {thread['thread_items'][0]['post']['caption']['text']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
+        for thread in threads.threads:
+            for thread_item in thread.thread_items:
+                print(f"{username}'s Post: {thread_item.post.caption.text} || Likes: {thread_item.post.like_count}")
     else:
         print(f"User ID not found for username '{username}'")
 
 # Asynchronously gets the replies for a user
-async def get_user_replies(api):
+async def get_user_replies(api : ThreadsAPI):
     username = "zuck"
     user_id = await api.get_user_id_from_username(username)
 
     if user_id:
         threads = await api.get_user_replies(user_id)
         print(f"The replies for user '{username}' are:")
-        for thread in threads['threads']:
-            print(f"-\n{thread['thread_items'][0]['post']['user']['username']}'s Post: {thread['thread_items'][0]['post']['caption']['text']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
+        for thread in threads.threads:
+            post = thread.thread_items[0].post
+            print(f"-\n{post.user.username}'s Post: {post.caption.text} || Likes: {post.like_count}")
 
-            print(f"{username}'s Reply: {thread['thread_items'][1]['post']['caption']['text']} || Likes: {thread['thread_items'][1]['post']['like_count']}\n-")
+            if len(thread.thread_items) > 1:
+                first_reply = thread.thread_items[1].post
+                print(f"{username}'s Reply: {first_reply.caption.text} || Likes: {first_reply.like_count}\n-")
+            else:
+                print(f"-> You will need to sign up / login to see more.")
+
     else:
         print(f"User ID not found for username '{username}'")
 
@@ -244,12 +250,14 @@ async def get_post(api : ThreadsAPI):
 
     post_id = await api.get_post_id_from_url(post_url)
 
-    thread = await api.get_post(post_id)
-    print(f"{thread['containing_thread']['thread_items'][0]['post']['user']['username']}'s post {thread['containing_thread']['thread_items'][0]['post']['caption']}:")
+    response = await api.get_post(post_id)
 
-    for thread in thread["reply_threads"]:
-        if 'thread_items' in thread and len(thread['thread_items']) > 1:
-            print(f"-\n{thread['thread_items'][0]['post']['user']['username']}'s Reply: {thread['thread_items'][0]['post']['caption']} || Likes: {thread['thread_items'][0]['post']['like_count']}")
+    thread = response.containing_thread.thread_items[0].post
+    print(f"{thread.user.username}'s post {thread.caption.text}: || Likes: {thread.like_count}")
+
+    for reply in response.reply_threads:
+        if reply.thread_items is not None and len(reply.thread_items) >= 1:
+            print(f"-\n{reply.thread_items[0].post.user.username}'s Reply: {reply.thread_items[0].post.caption.text} || Likes: {reply.thread_items[0].post.like_count}")
 
 # Asynchronously gets the likes for a post
 async def get_post_likes(api : ThreadsAPI):
@@ -257,11 +265,11 @@ async def get_post_likes(api : ThreadsAPI):
 
     post_id = await api.get_post_id_from_url(post_url)
 
-    likes = await api.get_post_likes(post_id)
+    users_list = await api.get_post_likes(post_id)
     number_of_likes_to_display = 10
 
-    for user_info in likes['users'][:number_of_likes_to_display]:
-        print(f'Username: {user_info["username"]} || Full Name: {user_info["full_name"]}')
+    for user in users_list.users[:number_of_likes_to_display]:
+        print(f'Username: {user.username} || Full Name: {user.full_name} || Follower Count: {user.follower_count} ')
 
 # Asynchronously reposts and deletes the repost
 async def repost_and_delete(api : ThreadsAPI):

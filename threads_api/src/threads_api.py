@@ -32,6 +32,7 @@ import functools
 from threads_api.src.settings import Settings
 
 from threads_api.src.http_sessions.aiohttp_session import AioHTTPSession
+from threads_api.src.types import *
 
 OPEN_ISSUE_MESSAGE = f"{Fore.RED}Oops, this is an error that hasn't yet been properly handled.\nPlease open an issue on Github at https://github.com/Danie1/threads-api.{Style.RESET_ALL}"
 
@@ -197,6 +198,8 @@ class ThreadsAPI:
         
         if 'status' in resp_json and resp_json['status'] == 'fail' or \
             'errors' in resp_json:
+            if 'message' in resp_json and resp_json['message'] == 'challenge_required':
+                raise LoggedOutException("It appears you have been logged out.")
             raise Exception(f"Request Failed, got back: [{resp_json}]\n{OPEN_ISSUE_MESSAGE}")
     
         return resp_json
@@ -418,7 +421,7 @@ class ThreadsAPI:
 
             return user_id.group(1) if user_id else None
 
-    async def get_user_profile(self, user_id: str):
+    async def get_user_profile(self, user_id: str) -> User:
         """
         Retrieves the profile information for a user with the provided user ID.
 
@@ -456,10 +459,9 @@ class ThreadsAPI:
     
         data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
 
-        user = data['data']['userData']['user']
-        return user
+        return User(**data['data']['userData']['user'])
 
-    async def get_user_threads(self, user_id: str, count=10, max_id=None):
+    async def get_user_threads(self, user_id: str, count=10, max_id=None) -> Threads:
         """
         Retrieves the threads associated with a user with the provided user ID.
 
@@ -479,7 +481,7 @@ class ThreadsAPI:
                 params = {'count': count}
             resp = await self._private_get(url=f'{BASE_URL}/text_feed/{user_id}/profile/', headers=self.auth_headers,data=params)
 
-            return resp
+            return Threads(**resp)
         # Public API for getting user threads is minimal. 'count' and 'max_id' are not used.
         else:
             url = 'https://www.threads.net/api/graphql'
@@ -507,10 +509,10 @@ class ThreadsAPI:
             
             data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
             
-            threads = data['data']['mediaData']['threads']
+            threads = Threads(**data['data']['mediaData'])
             return threads
     
-    async def get_user_replies(self, user_id: str, count=10, max_id : str = None):
+    async def get_user_replies(self, user_id: str, count=10, max_id : str = None) -> Threads:
         """
         Retrieves the replies associated with a user with the provided user ID.
 
@@ -530,7 +532,7 @@ class ThreadsAPI:
                 params = {'count': count}
             resp = await self._private_get(url=f'{BASE_URL}/text_feed/{user_id}/profile/replies', headers=self.auth_headers,data=params)
 
-            return resp
+            return Threads(**resp)
         # Public API for getting user threads is minimal. 'count' and 'max_id' are not used.
         else:
             url = 'https://www.threads.net/api/graphql'
@@ -558,7 +560,7 @@ class ThreadsAPI:
 
             data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
 
-            threads = data['data']['mediaData']['threads']
+            threads = Threads(**data['data']['mediaData'])
             return threads
     
     async def get_post_id_from_url(self, post_url : str):
@@ -585,7 +587,7 @@ class ThreadsAPI:
             id = (id * 64) + alphabet.index(char)
         return str(id)
 
-    async def get_post(self, post_id: str, count=10, max_id=None):
+    async def get_post(self, post_id: str, count=10, max_id=None) -> Replies:
         """
         Retrieves the post information for a given post ID.
 
@@ -604,7 +606,8 @@ class ThreadsAPI:
                 params = {'count': count, 'max_id':max_id}
             else:
                 params = {'count': count}
-            response = await self._private_get(url=f'{BASE_URL}/text_feed/{post_id}/replies', headers=self.auth_headers, data=params)
+            data = await self._private_get(url=f'{BASE_URL}/text_feed/{post_id}/replies', headers=self.auth_headers, data=params)
+            response = Replies(**data)
         else:
             url = 'https://www.threads.net/api/graphql'
             
@@ -631,10 +634,10 @@ class ThreadsAPI:
 
             data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
 
-            response = data['data']['data']
+            response = Replies(**data['data']['data'])
         return response
     
-    async def get_post_likes(self, post_id:str):
+    async def get_post_likes(self, post_id:str) -> UsersList:
         """
         Retrieves the likes for a post with the given post ID.
 
@@ -648,7 +651,8 @@ class ThreadsAPI:
             Exception: If an error occurs during the post likes retrieval process.
         """
         if self.is_logged_in:
-            response = await self._private_get(url=f'{BASE_URL}/media/{post_id}_{self.user_id}/likers', headers=self.auth_headers)
+            data = await self._private_get(url=f'{BASE_URL}/media/{post_id}_{self.user_id}/likers', headers=self.auth_headers)
+            response = UsersList(**data)
         else:
             url = 'https://www.threads.net/api/graphql'
             
@@ -675,7 +679,7 @@ class ThreadsAPI:
 
             data = await self._public_post_json(url=url, headers=modified_headers, data=payload)
 
-            response = data['data']['likers']['users']
+            response = UsersList(**data['data']['likers'])
         return response
 
     @require_login
@@ -825,7 +829,7 @@ class ThreadsAPI:
             }
 
         res = await self._private_post(url=f'{BASE_URL}/feed/text_post_app_timeline/', headers=self.auth_headers,data=parameters)
-        return res
+        return TimelineData(**res)
 
     @require_login
     async def mute_user(self, user_id : str):
@@ -1059,7 +1063,7 @@ class ThreadsAPI:
     
     @require_login
     async def post(
-        self, caption: str, image_path = None, url: str = None, parent_post_id: str = None, quoted_post_id: str = None) -> bool:
+        self, caption: str, image_path = None, url: str = None, parent_post_id: str = None, quoted_post_id: str = None) -> PostResponse:
         """
         Creates a new post with the given caption, image, URL, and parent post ID.
 
@@ -1219,9 +1223,8 @@ class ThreadsAPI:
         try:
             res = await self._private_post(url=post_url, headers=headers,data=payload)
 
-            if 'media' in res and 'pk' in res['media']:
-                # Return the newly created post_id
-                return res['media']['pk']
+            if 'status' in res and res['status'] == "ok":
+                return PostResponse(**res)
             else:
                 raise Exception("Failed to post. Got response:\n" + str(res))
         except Exception as e:
