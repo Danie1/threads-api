@@ -19,15 +19,17 @@ Inspired by [NPM Threads-API](https://github.com/junhoyeo/threads-api)
 
 Threads API is an unofficial Python client for Meta's Threads API. It allows you to interact with the API to login, read and publish posts, view who liked a post, retrieve user profile information, follow/unfollow and much more.
 
-It allows you to configure the session object. Choose between:
-* `aiohttp` - Python library to ease asynchronous execution of the API, for ⚡ super-fast ⚡ results. (*default*)
-* `requests` - Python library for standard ease of use (supports `HTTP_PROXY` env var functionality)
-* `instagrapi` - utilize the same connection all the way for private api
-* (Advanced) Implement your own and call ThreadsAPI like this: `ThreadsAPI(http_session_class=YourOwnHTTPSessionImpl)`
+✅ Configurable underlying HTTP Client (`aiohttp` / `requests` / `instagrapi`'s client / implement your own)
 
-> **Note** Since v1.1.10 you can use `requests` or `instagrapi` as HTTP clients, not just `aiohttp`.
+✅ Authentication Methods supported via `instagrapi`
 
-> **Note** Since v1.1.12 a `.session.json` file will be created by-default to save default settings (to reduce risk of being flagged). You can disable it by passing `ThreadsAPI(settings_path=None)`
+✅ Stores token and settings locally, to reduce login-attempts (*uses the same token for all authenticated requests for up to 24 hrs*)
+
+✅ Pydantic structures for API responses (for IDE auto-completion) (at [types.py](https://github.com/Danie1/threads-api/blob/main/threads_api/src/types.py))
+
+✅ Actively Maintained since Threads.net Release (responsive in Github Issues, try it out!)
+
+
 
 > **Important Tip** Use the same `cached_token_path` for connections, to reduce the number of actual login attempts. When needed, threads-api will reconnect and update the file in `cached_token_path`.  
 
@@ -36,12 +38,12 @@ Table of content:
 * [Demo](#demo)
 * [Getting started](#getting-started)
   * [Installation](#installation)
-  * [Set Log Level](#set-desired-log-level)
+  * [Set Log Level & Troubleshooting](#set-desired-log-level)
   * [Set HTTP Client](#choose-a-different-http-client)
-* [Contributions](#contributing-to-danie1threads-api)
 * [Supported Features](#supported-features)
 * [Usage Examples](#usage-examples)
 * [Roadmap](#📌-roadmap)
+* [Contributions](#contributing-to-danie1threads-api)
 * [License](#license)
 
 # Demo
@@ -119,42 +121,45 @@ export LOG_LEVEL=INFO
 export LOG_LEVEL=DEBUG
 ```
 
-# Contributing to Danie1/threads-api
-## Getting Started
-
-With Poetry (*Recommended*)
-``` bash
-# Step 1: Clone the project
-git clone git@github.com:Danie1/threads-api.git
-
-# Step 2: Install dependencies to virtual environment
-poetry install
-
-# Step 3: Activate virtual environment
-poetry shell
-```
-or
-
-Without Poetry
+<details>
+  <summary>Example of Request when LOG_LEVEL=DEBUG</summary>
 
 ``` bash
-# Step 1: Clone the project
-git clone git@github.com:Danie1/threads-api.git
+<---- START ---->
+Keyword arguments:
+  [title]: ["PUBLIC REQUEST"]
+  [type]: ["GET"]
+  [url]: ["https://www.instagram.com/instagram"]
+  [headers]: [{
+    "Authority": "www.threads.net",
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Origin": "https://www.threads.net",
+    "Pragma": "no-cache",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "cross-site",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1.2 Safari/605.1.15",
+    "X-ASBD-ID": "129477",
+    "X-IG-App-ID": "238260118697367"
+}]
+<---- END ---->
 
-# Step 2: Create virtual environment
-python3 -m venv env
-
-# Step 3 (Unix/MacOS): Activate virtual environment
-source env/bin/activate # Unix/MacOS
-
-# Step 3 (Windows): Activate virtual environment
-.\env\Scripts\activate # Windows
-
-# Step 4: Install dependencies
-pip install -r requirements.txt
 ```
+
+</details>
+
+### Troubleshooting threads-api
+Upon unexpected error, or upon receiving an exception with:  `Oops, this is an error that hasn't yet been properly handled.\nPlease open an issue on Github at https://github.com/Danie1/threads-api.`
+
+Please open a Github Issue with all of the information you can provide, which includes the last Request and Response (Set `LOG_LEVEL=DEBUG`)
 
 # Supported Features
+- [x] ✅ Pydantic typing API responses at [types.py](https://github.com/Danie1/threads-api/blob/main/threads_api/src/types.py)
 - [x] ✅ Login functionality, including 2FA 🔒
   - [x] ✅ Cache login token securely (reduce login requests / due to restrictive limits)
   - [x] ✅ Saves settings locally, such as device information and timezone to use along your sessions
@@ -200,25 +205,63 @@ pip install -r requirements.txt
   - [x] ✅  Instagrapi
 
 ## Usage Examples
-View [examples/public_api_examples.py](https://github.com/Danie1/threads-api/blob/main/examples/public_api_examples.py) for Public API code examples. For the Private API usage (requires login), head over to [examples/private_api_examples.py](https://github.com/Danie1/threads-api/blob/main/examples/private_api_examples.py)
+View [examples/public_api_examples.py](https://github.com/Danie1/threads-api/blob/main/examples/public_api_examples.py) for Public API code examples. 
 
-At the end of the file you will be able to uncomment and run the individual examples with ease.
-
-Then simply run as:
-```
+Run as:
+``` bash
 python3 examples/public_api_examples.py
+```
 
-# or
+View [examples/private_api_examples.py](https://github.com/Danie1/threads-api/blob/main/examples/private_api_examples.py) for Private API code examples.  (🔒 Requires Authentication 🔒)
 
-# Pass the credentials as environment variables
+Run as:
+```
 USERNAME=<Instagram Username> PASSWORD=<Instagram Password> python3 examples/private_api_examples.py
 ```
 
+> **Note:**
+> At the end of the file you will be able to uncomment and run the individual examples with ease.
+
 ## 📌 Roadmap
-- [ ] 🚧 Post text and share a video
+- [ ] 🚧 Share a video
 - [ ] 🚧 Documentation Improvements
-- [ ] 🚧 CI/CD Improvements
-  - [ ] 🚧 Add coverage Pytest + Coverage Widget to README
+- [ ] 🚧 Add coverage Pytest + Coverage Widget to README
+
+
+# Contributing to Danie1/threads-api
+## Getting Started
+
+With Poetry (*Recommended*)
+``` bash
+# Step 1: Clone the project
+git clone git@github.com:Danie1/threads-api.git
+
+# Step 2: Install dependencies to virtual environment
+poetry install
+
+# Step 3: Activate virtual environment
+poetry shell
+```
+or
+
+Without Poetry
+
+``` bash
+# Step 1: Clone the project
+git clone git@github.com:Danie1/threads-api.git
+
+# Step 2: Create virtual environment
+python3 -m venv env
+
+# Step 3 (Unix/MacOS): Activate virtual environment
+source env/bin/activate # Unix/MacOS
+
+# Step 3 (Windows): Activate virtual environment
+.\env\Scripts\activate # Windows
+
+# Step 4: Install dependencies
+pip install -r requirements.txt
+```
 
 # License
 This project is licensed under the MIT license.
