@@ -1,3 +1,6 @@
+> As of October 1st 2023 this repository is archived, and no longer be maintained. 
+---
+
 # [<img src="https://raw.githubusercontent.com/danie1/threads-api/main/.github/logo.jpg" width="36" height="36" />](https://github.com/danie1) Meta's Threads.net API
 
 
